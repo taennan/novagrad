@@ -1,4 +1,7 @@
-use crate::tui::{AppSystem, types::ScreenState};
+use crate::tui::{
+    AppSystem,
+    types::{ModelSelectWizard, ScreenState},
+};
 
 pub fn new() -> AppSystem {
     Box::new(|state| {
@@ -6,7 +9,9 @@ pub fn new() -> AppSystem {
         let is_key_pressed = !state.keys_pressed.is_empty();
 
         if is_on_home_screen && is_key_pressed {
-            state.screen = ScreenState::ModelSelect { models: vec![] };
+            state.screen = ScreenState::ModelSelect {
+                wizard: ModelSelectWizard::default(),
+            };
             state.keys_pressed.clear();
         }
     })
