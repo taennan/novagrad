@@ -110,7 +110,8 @@ fn render_run_mode_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizar
                 crate::tui::RunMode::Train => "run training steps and update weights",
                 crate::tui::RunMode::Test => "run inference only, no weight updates",
             };
-            list_line(index == wizard.cursor, mode.label(), detail)
+            let mode_label = String::from(mode);
+            list_line(index == wizard.cursor, &mode_label, detail)
         })
         .collect();
 
@@ -144,8 +145,8 @@ fn render_confirm_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizard
     let mode = wizard
         .selected_run_mode
         .and_then(|i| wizard.run_modes.get(i))
-        .map(|m| m.label())
-        .unwrap_or("(none)");
+        .map(|m| String::from(m))
+        .unwrap_or("(none)".to_string());
     let dataset = wizard
         .selected_dataset
         .and_then(|i| wizard.datasets.get(i))

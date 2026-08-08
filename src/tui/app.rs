@@ -1,7 +1,7 @@
 use crate::tui::{
     AppState, AppSystem,
     render::render,
-    systems::{home_screen_switcher, title_setter},
+    systems::{home_screen_switcher, model_run_input, title_setter, wizard_exit, wizard_input},
 };
 use crossterm::event::{Event, KeyCode};
 use ratatui::DefaultTerminal;
@@ -11,7 +11,13 @@ pub fn run() {
     state.title = "Novagrad".into();
     state.should_set_title = true;
 
-    let systems = [title_setter::new(), home_screen_switcher::new()];
+    let systems = [
+        title_setter::new(),
+        home_screen_switcher::new(),
+        wizard_input::new(),
+        wizard_exit::new(),
+        model_run_input::new(),
+    ];
 
     ratatui::run(|terminal| mainloop(terminal, &systems, &mut state));
 }

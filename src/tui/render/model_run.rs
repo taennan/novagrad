@@ -1,4 +1,4 @@
-use crate::tui::{ChartKind, ModelRunState};
+use crate::tui::{ChartKind, ModelRunState, types::RunMode};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -8,14 +8,13 @@ use ratatui::{
     widgets::{Axis, Bar, BarChart, BarGroup, Block, Chart, Dataset, GraphType, Paragraph},
 };
 
-pub fn render(frame: &mut Frame, training: bool, run: &ModelRunState) {
+pub fn render(frame: &mut Frame, mode: RunMode, run: &ModelRunState) {
     let [header_layout, body_layout] = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![Constraint::Length(1), Constraint::Fill(1)])
         .areas(frame.area());
 
-    let mode_label = if training { "TRAINING" } else { "TESTING" };
-    let header = Paragraph::new(format!("MODEL RUN — {mode_label}"))
+    let header = Paragraph::new(format!("MODEL RUN — {}", String::from(mode)))
         .bg(Color::DarkGray)
         .fg(Color::White)
         .bold();
@@ -167,64 +166,4 @@ fn render_side_panel(frame: &mut Frame, area: Rect, run: &ModelRunState) {
     ]);
 
     frame.render_widget(Paragraph::new(lines), inner);
-}
-
-/// Mock run state so the screen has something to render before the real
-/// training/testing backend is wired up.
-pub fn mock_model_run_state() -> ModelRunState {
-    let loss_data: Vec<(f64, f64)> = (0..100)
-        .map(|i| {
-            let x = i as f64;
-            let y = (1.0 / (1.0 + x * 0.05)) + (x * 0.13).sin() * 0.02;
-            (x, y)
-        })
-        .collect();
-
-    let accuracy_data: Vec<(f64, f64)> = (0..100)
-        .map(|i| {
-            let x = i as f64;
-            let y = (1.0 - (1.0 / (1.0 + x * 0.08))).min(0.99);
-            (x, y)
-        })
-        .collect();
-
-    let lr_bars = vec![
-        ("epoch 1", 100),
-        ("epoch 2", 80),
-        ("epoch 3", 64),
-        ("epoch 4", 51),
-        ("epoch 5", 41),
-    ];
-
-    ModelRunState {
-        metrics: vec![
-            crate::tui::MetricSeries {
-                name: "Loss",
-                chart_kind: ChartKind::Line,
-                line_data: loss_data,
-                bar_data: vec![],
-            },
-            crate::tui::MetricSeries {
-                name: "Accuracy",
-                chart_kind: ChartKind::Line,
-                line_data: accuracy_data,
-                bar_data: vec![],
-            },
-            crate::tui::MetricSeries {
-                name: "Learning Rate",
-                chart_kind: ChartKind::Bar,
-                line_data: vec![],
-                bar_data: lr_bars,
-            },
-        ],
-        selected_metric: 0,
-        stats: crate::tui::SystemStats {
-            cpu_percent: 42.3,
-            mem_used_mb: 2_150.0,
-            mem_total_mb: 8_192.0,
-            elapsed_seconds: 754,
-            current_epoch: 5,
-            total_epochs: 20,
-        },
-    }
 }

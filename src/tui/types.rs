@@ -21,7 +21,7 @@ pub enum ScreenState {
         wizard: ModelSelectWizard,
     },
     ModelRun {
-        training: bool,
+        mode: RunMode,
         model: Box<dyn Model>,
         run: ModelRunState,
     },
@@ -62,23 +62,26 @@ impl ModelChoice {
             ModelChoice::Existing { name, .. } => name,
         }
     }
+}
 
-    pub fn is_new(&self) -> bool {
-        matches!(self, ModelChoice::New { .. })
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum RunMode {
+    #[default]
+    Test,
+    Train,
+}
+
+impl From<&RunMode> for String {
+    fn from(value: &RunMode) -> Self {
+        Self::from(value.clone())
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RunMode {
-    Train,
-    Test,
-}
-
-impl RunMode {
-    pub fn label(&self) -> &'static str {
-        match self {
-            RunMode::Train => "Train",
-            RunMode::Test => "Test",
+impl From<RunMode> for String {
+    fn from(value: RunMode) -> Self {
+        match value {
+            RunMode::Train => "Train".into(),
+            RunMode::Test => "Test".into(),
         }
     }
 }
@@ -172,12 +175,14 @@ fn mock_datasets() -> Vec<DatasetChoice> {
 // Model Run screen state
 // ---------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ChartKind {
     Line,
+    #[default]
     Bar,
 }
 
+#[derive(Debug, Default)]
 pub struct MetricSeries {
     pub name: &'static str,
     pub chart_kind: ChartKind,
@@ -187,6 +192,7 @@ pub struct MetricSeries {
     pub bar_data: Vec<(&'static str, u64)>,
 }
 
+#[derive(Debug, Default)]
 pub struct SystemStats {
     pub cpu_percent: f64,
     pub mem_used_mb: f64,
@@ -196,10 +202,71 @@ pub struct SystemStats {
     pub total_epochs: u32,
 }
 
+#[derive(Debug, Default)]
 pub struct ModelRunState {
     pub metrics: Vec<MetricSeries>,
     /// Index into `metrics` for whichever chart is currently shown.
     /// (Switching this — e.g. on Tab / Left-Right — is handled elsewhere.)
     pub selected_metric: usize,
     pub stats: SystemStats,
+}
+
+impl ModelRunState {
+    pub fn mocked() -> Self {
+        let loss_data: Vec<(f64, f64)> = (0..100)
+            .map(|i| {
+                let x = i as f64;
+                let y = (1.0 / (1.0 + x * 0.05)) + (x * 0.13).sin() * 0.02;
+                (x, y)
+            })
+            .collect();
+
+        let accuracy_data: Vec<(f64, f64)> = (0..100)
+            .map(|i| {
+                let x = i as f64;
+                let y = (1.0 - (1.0 / (1.0 + x * 0.08))).min(0.99);
+                (x, y)
+            })
+            .collect();
+
+        let lr_bars = vec![
+            ("epoch 1", 100),
+            ("epoch 2", 80),
+            ("epoch 3", 64),
+            ("epoch 4", 51),
+            ("epoch 5", 41),
+        ];
+
+        Self {
+            metrics: vec![
+                crate::tui::MetricSeries {
+                    name: "Loss",
+                    chart_kind: ChartKind::Line,
+                    line_data: loss_data,
+                    bar_data: vec![],
+                },
+                crate::tui::MetricSeries {
+                    name: "Accuracy",
+                    chart_kind: ChartKind::Line,
+                    line_data: accuracy_data,
+                    bar_data: vec![],
+                },
+                crate::tui::MetricSeries {
+                    name: "Learning Rate",
+                    chart_kind: ChartKind::Bar,
+                    line_data: vec![],
+                    bar_data: lr_bars,
+                },
+            ],
+            selected_metric: 0,
+            stats: crate::tui::SystemStats {
+                cpu_percent: 42.3,
+                mem_used_mb: 2_150.0,
+                mem_total_mb: 8_192.0,
+                elapsed_seconds: 754,
+                current_epoch: 5,
+                total_epochs: 20,
+            },
+        }
+    }
 }
