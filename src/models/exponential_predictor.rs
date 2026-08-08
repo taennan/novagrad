@@ -1,7 +1,4 @@
-use crate::{
-    graph::{ExpOp, MseOp, NodeRef, TanhOp},
-    nn::Mlp,
-};
+use crate::engine::{ExpOp, MseOp, NodeRef};
 use rand::prelude::*;
 
 pub struct ExpPredictorModel {
@@ -19,7 +16,11 @@ pub fn build_model() -> ExpPredictorModel {
 
     let output = NodeRef::chained(&[input.clone(), exponential.clone()], &ExpOp);
 
-    ExpPredictorModel { input, output, param: exponential }
+    ExpPredictorModel {
+        input,
+        output,
+        param: exponential,
+    }
 }
 
 pub fn train_model(model: &ExpPredictorModel) {
@@ -63,7 +64,10 @@ pub fn train_model(model: &ExpPredictorModel) {
             avg_loss_sum += loss.value();
         }
 
-        println!("  average loss={}", avg_loss_sum / train_dataset.len() as f32);
+        println!(
+            "  average loss={}",
+            avg_loss_sum / train_dataset.len() as f32
+        );
         println!("  param value={}", model.param.value());
     }
 
@@ -104,4 +108,3 @@ fn build_dataset(length: usize) -> Vec<(f32, f32)> {
         })
         .collect::<Vec<_>>()
 }
-

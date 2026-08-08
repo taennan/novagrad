@@ -1,5 +1,5 @@
-use crate::graph::{AddOp, MulOp, NodeRef, Op};
-use rand::prelude::*;
+use crate::engine::{AddOp, MulOp, NodeRef, Op};
+//use rand::prelude::*;
 
 pub struct Neuron {
     bias: NodeRef,

@@ -1,2 +1,5 @@
+data/*
+
+!.gitkeep
 /target
 .DS_Store

@@ -1,7 +1,4 @@
-use crate::{
-    graph::{MseOp, NodeRef, TanhOp},
-    nn::Mlp,
-};
+use crate::engine::{MseOp, NodeRef, TanhOp, nn::Mlp};
 use rand::prelude::*;
 
 pub fn build_model() -> (NodeRef, Mlp) {
