@@ -1,15 +1,13 @@
-use crate::tui::types::{AppSystem, ModelSelectWizard, ScreenState};
+use crate::tui::types::{AppSystemContext, ModelSelectWizard, ScreenState};
 
-pub fn new() -> AppSystem {
-    Box::new(|state| {
-        let is_on_home_screen = matches!(state.screen, ScreenState::Home);
-        let is_key_pressed = !state.keys_pressed.is_empty();
+pub fn run(ctx: AppSystemContext) {
+    let is_on_home_screen = matches!(ctx.state.screen, ScreenState::Home);
+    let is_key_pressed = !ctx.state.keys_pressed.is_empty();
 
-        if is_on_home_screen && is_key_pressed {
-            state.screen = ScreenState::ModelSelect {
-                wizard: ModelSelectWizard::default(),
-            };
-            state.keys_pressed.clear();
-        }
-    })
+    if is_on_home_screen && is_key_pressed {
+        ctx.state.screen = ScreenState::ModelSelect {
+            wizard: ModelSelectWizard::default(),
+        };
+        ctx.state.keys_pressed.clear();
+    }
 }

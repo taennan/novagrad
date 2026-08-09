@@ -1,6 +1,8 @@
 use crate::{
     models::exponential_predictor_v2::ExpPredictor,
-    tui::types::{AppSystem, ModelRunState, ModelSelectWizard, RunMode, ScreenState, WizardStep},
+    tui::types::{
+        AppSystemContext, ModelRunState, ModelSelectWizard, RunMode, ScreenState, WizardStep,
+    },
 };
 use crossterm::event::KeyCode;
 
@@ -8,30 +10,28 @@ use crossterm::event::KeyCode;
 /// - Up/Down arrows navigate the list
 /// - Enter confirms the current selection and advances the wizard
 /// - Backspace goes back to the previous step
-pub fn new() -> AppSystem {
-    Box::new(|state| {
-        let ScreenState::ModelSelect { wizard } = &mut state.screen else {
-            return;
-        };
+pub fn run(ctx: AppSystemContext) {
+    let ScreenState::ModelSelect { wizard } = &mut ctx.state.screen else {
+        return;
+    };
 
-        if state.keys_pressed.contains(&KeyCode::Up) {
-            move_cursor(wizard, -1);
-        } else if state.keys_pressed.contains(&KeyCode::Down) {
-            move_cursor(wizard, 1);
-        } else if state.keys_pressed.contains(&KeyCode::Enter) {
-            match go_forward(wizard) {
-                Some(screen) => state.screen = screen,
-                _ => {}
-            }
-        } else if state.keys_pressed.contains(&KeyCode::Backspace) {
-            match go_back(wizard) {
-                Some(screen) => state.screen = screen,
-                _ => {}
-            }
+    if ctx.state.keys_pressed.contains(&KeyCode::Up) {
+        move_cursor(wizard, -1);
+    } else if ctx.state.keys_pressed.contains(&KeyCode::Down) {
+        move_cursor(wizard, 1);
+    } else if ctx.state.keys_pressed.contains(&KeyCode::Enter) {
+        match go_forward(wizard) {
+            Some(screen) => ctx.state.screen = screen,
+            _ => {}
         }
+    } else if ctx.state.keys_pressed.contains(&KeyCode::Backspace) {
+        match go_back(wizard) {
+            Some(screen) => ctx.state.screen = screen,
+            _ => {}
+        }
+    }
 
-        state.keys_pressed.clear();
-    })
+    ctx.state.keys_pressed.clear();
 }
 
 fn move_cursor(wizard: &mut ModelSelectWizard, delta: i32) {
