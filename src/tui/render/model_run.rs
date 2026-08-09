@@ -1,4 +1,4 @@
-use crate::tui::{ChartKind, ModelRunState, types::RunMode};
+use crate::tui::types::{ChartKind, MetricSeries, ModelRunState, RunMode};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -63,7 +63,7 @@ fn render_metric_tabs_and_chart(frame: &mut Frame, area: Rect, run: &ModelRunSta
     }
 }
 
-fn render_line_chart(frame: &mut Frame, area: Rect, metric: &crate::tui::MetricSeries) {
+fn render_line_chart(frame: &mut Frame, area: Rect, metric: &MetricSeries) {
     let x_min = metric
         .line_data
         .iter()
@@ -112,7 +112,7 @@ fn render_line_chart(frame: &mut Frame, area: Rect, metric: &crate::tui::MetricS
     frame.render_widget(chart, area);
 }
 
-fn render_bar_chart(frame: &mut Frame, area: Rect, metric: &crate::tui::MetricSeries) {
+fn render_bar_chart(frame: &mut Frame, area: Rect, metric: &MetricSeries) {
     let bars: Vec<Bar> = metric
         .bar_data
         .iter()

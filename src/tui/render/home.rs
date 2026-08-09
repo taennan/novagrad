@@ -1,4 +1,4 @@
-use crate::tui::AppState;
+use crate::tui::types::AppState;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},

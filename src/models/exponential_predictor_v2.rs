@@ -1,10 +1,11 @@
 use crate::{
     engine::{ExpOp, MseOp, NodeRef},
-    models::{HyperParam, HyperParamConfig, Model},
+    models::{Dataset, HyperParam, HyperParamConfig, Model},
 };
 use rand::prelude::*;
 use std::{collections::HashMap, io, path::PathBuf};
 
+#[derive(Debug)]
 pub struct ExpPredictor {
     pub input: NodeRef,
     pub output: NodeRef,
@@ -29,7 +30,7 @@ impl ExpPredictor {
     }
 }
 
-impl Model for ExpPredictor {
+impl Model<f32> for ExpPredictor {
     fn name(&self) -> &'static str {
         "Exponential Predictor"
     }
@@ -38,12 +39,26 @@ impl Model for ExpPredictor {
         HashMap::new()
     }
 
-    fn train(&self, hyperparams: &HashMap<String, HyperParam>) -> Result<(), ()> {
-        let epochs = 4;
-        let step = 1e-6;
-        let train_dataset = build_dataset(500);
+    fn train(
+        &self,
+        hyperparams: &HashMap<String, HyperParam>,
+        dataset: &dyn Dataset<f32>,
+    ) -> Result<(), ()> {
+        let epochs = hyperparams.get("epoch").map_or(4usize, |h| match h {
+            HyperParam::Int(e) => *e as usize,
+            _ => 4,
+        });
+        let step = hyperparams.get("step").map_or(1e-6, |h| match h {
+            HyperParam::Float(e) => *e as f32,
+            _ => 1e-6,
+        });
 
-        let batch_size_node = NodeRef::from(1.0);
+        let batch_size = hyperparams.get("batch_size").map_or(1usize, |h| match h {
+            HyperParam::Int(e) => *e as usize,
+            _ => 1,
+        });
+        let batch_size_node = NodeRef::from(batch_size as f32);
+
         let expected_node = NodeRef::from(0.0);
         let loss = NodeRef::chained(
             &[
@@ -64,9 +79,9 @@ impl Model for ExpPredictor {
 
             let mut avg_loss_sum = 0.0;
 
-            for (input_value, expected) in &train_dataset {
-                self.input.set_value(*input_value);
-                expected_node.set_value(*expected);
+            for item in dataset.iter_train() {
+                self.input.set_value(item.input);
+                expected_node.set_value(item.expected);
                 loss.clear_gradients();
 
                 loss.compute_value();
@@ -81,7 +96,7 @@ impl Model for ExpPredictor {
 
             println!(
                 "  average loss={}",
-                avg_loss_sum / train_dataset.len() as f32
+                avg_loss_sum / dataset.train_len() as f32
             );
             println!("  param value={}", self.param.value());
         }
@@ -92,7 +107,7 @@ impl Model for ExpPredictor {
         Ok(())
     }
 
-    fn test(&self, hyperparams: &HashMap<String, HyperParam>) -> Result<(), ()> {
+    fn test(&self, dataset: &dyn Dataset<f32>) -> Result<(), ()> {
         let dataset = build_dataset(25);
 
         println!("Starting testing...");
@@ -135,4 +150,36 @@ fn build_dataset(length: usize) -> Vec<(f32, f32)> {
             (x, y)
         })
         .collect::<Vec<_>>()
+}
+
+pub struct _ExpPredictor;
+
+impl Model<f32> for _ExpPredictor {
+    fn name(&self) -> &'static str {
+        "Exponential Predictor Stub"
+    }
+
+    fn hyperparam_config(&self) -> HashMap<String, HyperParamConfig> {
+        HashMap::new()
+    }
+
+    fn train(
+        &self,
+        hyperparams: &HashMap<String, HyperParam>,
+        dataset: &dyn Dataset<f32>,
+    ) -> Result<(), ()> {
+        todo!()
+    }
+
+    fn test(&self, dataset: &dyn Dataset<f32>) -> Result<(), ()> {
+        todo!()
+    }
+
+    fn save(&self, filepath: PathBuf) -> Result<(), io::Error> {
+        todo!()
+    }
+
+    fn load(&self, filepath: PathBuf) -> Result<(), io::Error> {
+        todo!()
+    }
 }

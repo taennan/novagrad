@@ -1,7 +1,4 @@
-use crate::tui::{
-    AppSystem,
-    types::{ScreenState, WizardStep},
-};
+use crate::tui::types::{AppSystem, ScreenState, WizardStep};
 use crossterm::event::KeyCode;
 
 /// Handles exiting the model select wizard and returning to the home screen

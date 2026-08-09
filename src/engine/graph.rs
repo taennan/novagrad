@@ -112,6 +112,15 @@ impl fmt::Display for NodeRef {
     }
 }
 
+impl fmt::Debug for NodeRef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let this = self
+            .try_borrow()
+            .expect("NodeRef already borrowed before Display::fmt");
+        fmt::Display::fmt(&this, f)
+    }
+}
+
 impl Hash for NodeRef {
     fn hash<H>(&self, hasher: &mut H)
     where

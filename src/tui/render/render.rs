@@ -1,6 +1,6 @@
 use crate::tui::{
-    AppState, ScreenState,
     render::{home, model_run, model_select},
+    types::{AppState, ScreenState},
 };
 
 pub fn render(frame: &mut ratatui::Frame, state: &AppState) {

@@ -1,4 +1,4 @@
-use crate::tui::AppSystem;
+use crate::tui::types::AppSystem;
 use crossterm::{ExecutableCommand, terminal};
 use std::io;
 

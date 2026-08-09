@@ -1,10 +1,49 @@
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{collections::HashMap, fmt::Debug, io, path::PathBuf};
 
-pub trait Model {
+pub enum CategorisedModel {
+    F32(Box<dyn Model<f32>>),
+    F64(Box<dyn Model<f64>>),
+}
+
+impl CategorisedModel {
+    pub fn category(&self) -> ValueCategory {
+        match self {
+            Self::F32(_) => ValueCategory::F32,
+            Self::F64(_) => ValueCategory::F64,
+        }
+    }
+}
+
+pub enum CategorisedDataset {
+    F32(Box<dyn Dataset<f32>>),
+    F64(Box<dyn Dataset<f64>>),
+}
+
+impl CategorisedDataset {
+    pub fn category(&self) -> ValueCategory {
+        match self {
+            Self::F32(_) => ValueCategory::F32,
+            Self::F64(_) => ValueCategory::F64,
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ValueCategory {
+    F32,
+    F64,
+}
+
+pub trait Model<N> {
+    //fn new(hyperparams: &HashMap<String, HyperParam>) -> Self;
     fn name(&self) -> &'static str;
     fn hyperparam_config(&self) -> HashMap<String, HyperParamConfig>;
-    fn train(&self, hyperparams: &HashMap<String, HyperParam>) -> Result<(), ()>;
-    fn test(&self, hyperparams: &HashMap<String, HyperParam>) -> Result<(), ()>;
+    fn train(
+        &self,
+        hyperparams: &HashMap<String, HyperParam>,
+        dataset: &dyn Dataset<N>,
+    ) -> Result<(), ()>;
+    fn test(&self, dataset: &dyn Dataset<N>) -> Result<(), ()>;
     fn save(&self, filepath: PathBuf) -> Result<(), io::Error>;
     fn load(&self, filepath: PathBuf) -> Result<(), io::Error>;
 }
@@ -47,33 +86,19 @@ pub enum HyperParam {
     Int(i32),
 }
 
-struct Test {}
+pub trait Dataset<I> {
+    fn name(&self) -> &'static str;
 
-impl Model for Test {
-    fn name(&self) -> &'static str {
-        "Test Model"
-    }
+    fn train_len(&self) -> usize;
+    fn validation_len(&self) -> usize;
+    fn test_len(&self) -> usize;
 
-    fn hyperparam_config(&self) -> HashMap<String, HyperParamConfig> {
-        let mut hyperparams = HashMap::new();
-        hyperparams.insert("epochs".into(), HyperParamConfig::epochs());
+    fn iter_train(&self) -> Box<dyn Iterator<Item = DatasetItem<I>>>;
+    fn iter_validation(&self) -> Box<dyn Iterator<Item = DatasetItem<I>>>;
+    fn iter_test(&self) -> Box<dyn Iterator<Item = DatasetItem<I>>>;
+}
 
-        hyperparams
-    }
-
-    fn train(&self, hyperparams: &HashMap<String, HyperParam>) -> Result<(), ()> {
-        Ok(())
-    }
-
-    fn test(&self, hyperparams: &HashMap<String, HyperParam>) -> Result<(), ()> {
-        Ok(())
-    }
-
-    fn save(&self, filepath: PathBuf) -> Result<(), io::Error> {
-        todo!()
-    }
-
-    fn load(&self, filepath: PathBuf) -> Result<(), io::Error> {
-        todo!()
-    }
+pub struct DatasetItem<I> {
+    pub input: I,
+    pub expected: I,
 }

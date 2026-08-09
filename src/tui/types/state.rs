@@ -2,15 +2,24 @@ use crate::models::Model;
 use crossterm::event::KeyCode;
 use std::collections::HashSet;
 
-pub type AppSystem = Box<dyn Fn(&mut AppState)>;
-
-#[derive(Default)]
 pub struct AppState {
     pub title: String,
     pub should_set_title: bool,
     pub keys_pressed: HashSet<KeyCode>,
     pub screen: ScreenState,
     pub should_exit: bool,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            title: "Novagrad".to_string(),
+            should_set_title: true,
+            keys_pressed: HashSet::new(),
+            screen: ScreenState::default(),
+            should_exit: false,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -22,7 +31,6 @@ pub enum ScreenState {
     },
     ModelRun {
         mode: RunMode,
-        model: Box<dyn Model>,
         run: ModelRunState,
     },
 }
@@ -239,19 +247,19 @@ impl ModelRunState {
 
         Self {
             metrics: vec![
-                crate::tui::MetricSeries {
+                MetricSeries {
                     name: "Loss",
                     chart_kind: ChartKind::Line,
                     line_data: loss_data,
                     bar_data: vec![],
                 },
-                crate::tui::MetricSeries {
+                MetricSeries {
                     name: "Accuracy",
                     chart_kind: ChartKind::Line,
                     line_data: accuracy_data,
                     bar_data: vec![],
                 },
-                crate::tui::MetricSeries {
+                MetricSeries {
                     name: "Learning Rate",
                     chart_kind: ChartKind::Bar,
                     line_data: vec![],
@@ -259,7 +267,7 @@ impl ModelRunState {
                 },
             ],
             selected_metric: 0,
-            stats: crate::tui::SystemStats {
+            stats: SystemStats {
                 cpu_percent: 42.3,
                 mem_used_mb: 2_150.0,
                 mem_total_mb: 8_192.0,

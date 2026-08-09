@@ -1,4 +1,4 @@
-use crate::tui::{ModelSelectWizard, WizardStep};
+use crate::tui::types::{ModelChoice, ModelSelectWizard, RunMode, WizardStep};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -73,11 +73,11 @@ fn render_model_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizard) 
         .enumerate()
         .map(|(index, choice)| {
             let (label, detail) = match choice {
-                crate::tui::ModelChoice::New { name, architecture } => (
+                ModelChoice::New { name, architecture } => (
                     format!("New model: {name}"),
                     format!("train from scratch · {architecture}"),
                 ),
-                crate::tui::ModelChoice::Existing {
+                ModelChoice::Existing {
                     name,
                     checkpoint,
                     last_trained,
@@ -107,8 +107,8 @@ fn render_run_mode_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizar
         .enumerate()
         .map(|(index, mode)| {
             let detail = match mode {
-                crate::tui::RunMode::Train => "run training steps and update weights",
-                crate::tui::RunMode::Test => "run inference only, no weight updates",
+                RunMode::Train => "run training steps and update weights",
+                RunMode::Test => "run inference only, no weight updates",
             };
             let mode_label = String::from(mode);
             list_line(index == wizard.cursor, &mode_label, detail)

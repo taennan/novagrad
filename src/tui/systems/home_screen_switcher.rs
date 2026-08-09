@@ -1,7 +1,4 @@
-use crate::tui::{
-    AppSystem,
-    types::{ModelSelectWizard, ScreenState},
-};
+use crate::tui::types::{AppSystem, ModelSelectWizard, ScreenState};
 
 pub fn new() -> AppSystem {
     Box::new(|state| {

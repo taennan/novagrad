@@ -1,9 +1,6 @@
 use crate::{
     models::exponential_predictor_v2::ExpPredictor,
-    tui::{
-        AppSystem,
-        types::{ModelRunState, ModelSelectWizard, RunMode, ScreenState, WizardStep},
-    },
+    tui::types::{AppSystem, ModelRunState, ModelSelectWizard, RunMode, ScreenState, WizardStep},
 };
 use crossterm::event::KeyCode;
 
@@ -82,7 +79,7 @@ fn go_forward(wizard: &mut ModelSelectWizard) -> Option<ScreenState> {
                 None => RunMode::default(),
             };
 
-            let screen = ScreenState::ModelRun { mode, model, run };
+            let screen = ScreenState::ModelRun { mode, run };
             Some(screen)
         }
     }

@@ -1,4 +1,4 @@
-use crate::tui::{AppSystem, types::ScreenState};
+use crate::tui::types::{AppSystem, ScreenState};
 use crossterm::event::KeyCode;
 
 /// Handles user input during model training/testing:
