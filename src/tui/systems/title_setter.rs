@@ -1,15 +1,15 @@
-use crate::tui::types::AppSystemContext;
+use crate::tui::types::{AppEvent, AppSystemContext};
 use crossterm::{ExecutableCommand, terminal};
 use std::io;
 
 pub fn run(ctx: AppSystemContext) {
-    if ctx.state.should_set_title {
-        let title_set_command = terminal::SetTitle(&ctx.state.title);
+    match &ctx.event {
+        AppEvent::SetTitle(new_title) => {
+            let title_set_command = terminal::SetTitle(new_title);
 
-        let mut stdout = io::stdout();
-        let title_set_result = stdout.execute(title_set_command);
-        if title_set_result.is_ok() {
-            ctx.state.should_set_title = false;
+            let mut stdout = io::stdout();
+            let _ = stdout.execute(title_set_command);
         }
+        _ => {}
     }
 }

@@ -1,23 +1,16 @@
-use crate::models::Model;
 use crossterm::event::KeyCode;
 use std::collections::HashSet;
 
 pub struct AppState {
-    pub title: String,
-    pub should_set_title: bool,
     pub keys_pressed: HashSet<KeyCode>,
     pub screen: ScreenState,
-    pub should_exit: bool,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            title: "Novagrad".to_string(),
-            should_set_title: true,
             keys_pressed: HashSet::new(),
             screen: ScreenState::default(),
-            should_exit: false,
         }
     }
 }

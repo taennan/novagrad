@@ -8,7 +8,7 @@ use ratatui::{
 };
 use tui_big_text::{BigText, PixelSize};
 
-pub fn render(frame: &mut Frame, state: &AppState) {
+pub fn render(frame: &mut Frame) {
     let center_block = Block::bordered().title_top(Line::from("v0.1.0").centered());
 
     let [layout] = Layout::default()
@@ -29,7 +29,7 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         .pixel_size(PixelSize::Full)
         .style(Style::new().bold().cyan())
         .alignment(Alignment::Center)
-        .lines(vec![state.title.clone().into()])
+        .lines(vec!["Novagrad".into()])
         .build();
 
     frame.render_widget(big_title, big_text_area)

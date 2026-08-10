@@ -1,8 +1,5 @@
-use crate::{
-    models::exponential_predictor_v2::ExpPredictor,
-    tui::types::{
-        AppSystemContext, ModelRunState, ModelSelectWizard, RunMode, ScreenState, WizardStep,
-    },
+use crate::tui::types::{
+    AppSystemContext, ModelRunState, ModelSelectWizard, RunMode, ScreenState, WizardStep,
 };
 use crossterm::event::KeyCode;
 
@@ -72,7 +69,6 @@ fn go_forward(wizard: &mut ModelSelectWizard) -> Option<ScreenState> {
             None
         }
         WizardStep::Confirm => {
-            let model = Box::new(ExpPredictor::new());
             let run = ModelRunState::mocked();
             let mode = match wizard.selected_run_mode {
                 Some(selected) => wizard.run_modes[selected],

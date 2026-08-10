@@ -5,6 +5,7 @@ use crossterm::event::KeyCode;
 pub enum AppEvent {
     Quit,
     Tick,
+    SetTitle(String),
     KeyPress(KeyCode),
     KeyRelease(KeyCode),
 }

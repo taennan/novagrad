@@ -17,6 +17,8 @@ pub fn run() {
     workers::model_runner::spawn(state.clone(), model_runner_receiver);
 
     ratatui::run(|terminal| {
+        let _ = app_sender.send(AppEvent::SetTitle("Novagrad".into()));
+
         while let Ok(event) = app_receiver.recv() {
             if matches!(event, AppEvent::Quit) {
                 break;
@@ -28,6 +30,7 @@ pub fn run() {
                     (system)(AppSystemContext {
                         state: &mut state,
                         event: &event,
+                        app_sender: &app_sender,
                         model_runner_sender: &model_runner_sender,
                     });
                 }
