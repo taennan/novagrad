@@ -1,4 +1,7 @@
-use crate::tui::types::{Metric, MetricSeries, MetricTag, ScreenState};
+use crate::tui::{
+    types::{Metric, MetricSeries, MetricTag, ScreenState},
+    workers::logger::LogWorkerState,
+};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -7,7 +10,10 @@ use ratatui::{
     text::Line,
     widgets::{Axis, Block, Chart, Dataset, GraphType, Paragraph},
 };
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 // Helper trait to convert metric values to f64
 trait ToF64 {
@@ -26,7 +32,7 @@ impl ToF64 for usize {
     }
 }
 
-pub fn render(frame: &mut Frame, screen: &ScreenState) {
+pub fn render(frame: &mut Frame, screen: &ScreenState, log_state: Arc<Mutex<LogWorkerState>>) {
     match screen {
         ScreenState::ModelRun {
             mode,
@@ -51,7 +57,7 @@ pub fn render(frame: &mut Frame, screen: &ScreenState) {
                 .areas(body_layout);
 
             render_chart_and_controls(frame, chart_layout, metrics, selected_metric);
-            render_side_panels(frame, side_layout, metrics, selected_metric);
+            render_side_panels(frame, side_layout, metrics, selected_metric, log_state);
         }
         _ => {}
     }
@@ -171,6 +177,7 @@ fn render_side_panels(
     area: Rect,
     metrics: &HashMap<MetricTag, Metric>,
     selected_metric: &Option<MetricTag>,
+    log_state: Arc<Mutex<LogWorkerState>>,
 ) {
     let [metrics_layout, logs_layout] = Layout::default()
         .direction(Direction::Vertical)
@@ -178,7 +185,7 @@ fn render_side_panels(
         .areas(area);
 
     render_metrics_panel(frame, metrics_layout, metrics, selected_metric);
-    render_logs_panel(frame, logs_layout);
+    render_logs_panel(frame, logs_layout, log_state);
 }
 
 fn render_metrics_panel(
@@ -220,12 +227,23 @@ fn render_metrics_panel(
     frame.render_widget(Paragraph::new(lines), inner);
 }
 
-fn render_logs_panel(frame: &mut Frame, area: Rect) {
+fn render_logs_panel(frame: &mut Frame, area: Rect, log_state: Arc<Mutex<LogWorkerState>>) {
     let block = Block::bordered().title(" Logs ");
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    // Placeholder for logs - user will add logic later
-    let placeholder = Paragraph::new("[Logs will appear here]");
-    frame.render_widget(placeholder, inner);
+    let log_state = log_state.lock().unwrap();
+    if !log_state.logs().is_empty() {
+        let mut text = String::new();
+        for log in log_state.logs().iter() {
+            text.push_str(log);
+        }
+
+        let para = Paragraph::new(text);
+        frame.render_widget(para, inner);
+    } else {
+        // Placeholder for logs - user will add logic later
+        let placeholder = Paragraph::new("[Logs will appear here]");
+        frame.render_widget(placeholder, inner);
+    }
 }

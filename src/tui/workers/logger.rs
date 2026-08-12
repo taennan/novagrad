@@ -7,7 +7,6 @@ use std::{
         mpsc::{Receiver, Sender},
     },
     thread::{self, JoinHandle},
-    time::SystemTime,
 };
 
 #[derive(Debug)]
@@ -18,6 +17,10 @@ pub struct Logger {
 impl Logger {
     pub fn new(sender: Sender<LogWorkerEvent>) -> Self {
         Self { sender }
+    }
+
+    pub fn clear(&self) {
+        let _ = self.sender.send(LogWorkerEvent::Clear);
     }
 
     pub fn log<S>(&self, message: S)
@@ -115,8 +118,8 @@ where
         return;
     };
 
-    let now = SystemTime::now();
-    let message = format!("[{} {:?}] {}", variant, now, body);
+    let now = chrono::offset::Local::now().time();
+    let message = format!("[{} {}] {}\n", variant, now, body);
 
     let _ = file.write(message.as_bytes());
     state.lock().unwrap().push(message);

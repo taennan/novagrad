@@ -30,6 +30,7 @@ pub fn run() {
     workers::model_runner::spawn(app_state.clone(), model_runner_receiver);
 
     ratatui::run(|terminal| {
+        logger.clear();
         let _ = app_sender.send(AppEvent::SetTitle("Novagrad".into()));
 
         while let Ok(event) = app_receiver.recv() {
@@ -53,7 +54,7 @@ pub fn run() {
             }
 
             let app_state = app_state.lock().unwrap();
-            let _ = terminal.draw(|frame| render(frame, &app_state));
+            let _ = terminal.draw(|frame| render(frame, &app_state, log_state.clone()));
         }
     });
 }
