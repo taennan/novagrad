@@ -2,19 +2,32 @@ use crate::tui::{
     render::render,
     systems,
     types::{AppEvent, AppState, AppSystemContext, ModelRunnerEvent},
-    workers,
+    workers::{
+        self,
+        logger::{LogWorkerEvent, LogWorkerState, Logger},
+    },
 };
-use std::sync::{Arc, Mutex, mpsc};
+use std::{
+    env,
+    sync::{Arc, Mutex, mpsc},
+};
 
 pub fn run() {
     let (app_sender, app_receiver) = mpsc::channel::<AppEvent>();
+    let (log_sender, log_receiver) = mpsc::channel::<LogWorkerEvent>();
     let (model_runner_sender, model_runner_receiver) = mpsc::channel::<ModelRunnerEvent>();
 
-    let state = Arc::new(Mutex::new(AppState::default()));
+    let data_dir = env::current_dir().unwrap().join("data");
+    let logfile = data_dir.join("logs.txt");
+    let logger = Logger::new(log_sender);
+    let log_state = Arc::new(Mutex::new(LogWorkerState::new()));
 
+    let app_state = Arc::new(Mutex::new(AppState::default()));
+
+    workers::logger::spawn(&logfile, log_state.clone(), log_receiver);
     workers::input::spawn(app_sender.clone());
     workers::ticker::spawn(app_sender.clone());
-    workers::model_runner::spawn(state.clone(), model_runner_receiver);
+    workers::model_runner::spawn(app_state.clone(), model_runner_receiver);
 
     ratatui::run(|terminal| {
         let _ = app_sender.send(AppEvent::SetTitle("Novagrad".into()));
@@ -25,21 +38,22 @@ pub fn run() {
             }
 
             {
-                let mut state = state.lock().unwrap();
+                let mut app_state = app_state.lock().unwrap();
                 for system in &systems::ordered() {
                     (system)(AppSystemContext {
-                        state: &mut state,
+                        state: &mut app_state,
                         event: &event,
                         app_sender: &app_sender,
+                        logger: &logger,
                         model_runner_sender: &model_runner_sender,
                     });
                 }
 
-                state.keys_pressed.clear();
+                app_state.keys_pressed.clear();
             }
 
-            let state = state.lock().unwrap();
-            let _ = terminal.draw(|frame| render(frame, &state));
+            let app_state = app_state.lock().unwrap();
+            let _ = terminal.draw(|frame| render(frame, &app_state));
         }
     });
 }
