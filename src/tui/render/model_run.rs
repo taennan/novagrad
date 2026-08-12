@@ -1,4 +1,6 @@
-use crate::tui::types::{ChartKind, MetricSeries, ModelRunState, RunMode};
+use std::collections::HashMap;
+
+use crate::tui::types::{Metric, MetricSeries, MetricTag, RunMode, ScreenState};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -8,28 +10,49 @@ use ratatui::{
     widgets::{Axis, Bar, BarChart, BarGroup, Block, Chart, Dataset, GraphType, Paragraph},
 };
 
-pub fn render(frame: &mut Frame, mode: RunMode, run: &ModelRunState) {
-    let [header_layout, body_layout] = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Length(1), Constraint::Fill(1)])
-        .areas(frame.area());
+pub fn render(frame: &mut Frame, mode: RunMode, screen: &ScreenState) {
+    match screen {
+        ScreenState::ModelRun {
+            mode,
+            metrics,
+            selected_metric,
+        } => {
+            let [header_layout, body_layout] = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![Constraint::Length(1), Constraint::Fill(1)])
+                .areas(frame.area());
 
-    let header = Paragraph::new(format!("MODEL RUN — {}", String::from(mode)))
-        .bg(Color::DarkGray)
-        .fg(Color::White)
-        .bold();
-    frame.render_widget(header, header_layout);
+            let header = Paragraph::new(format!("MODEL RUN — {}", String::from(mode)))
+                .bg(Color::DarkGray)
+                .fg(Color::White)
+                .bold();
+            frame.render_widget(header, header_layout);
 
-    let [chart_layout, side_layout] = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(vec![Constraint::Fill(3), Constraint::Length(30)])
-        .areas(body_layout);
+            let [chart_layout, side_layout] = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(vec![Constraint::Fill(3), Constraint::Length(30)])
+                .areas(body_layout);
 
-    render_metric_tabs_and_chart(frame, chart_layout, run);
-    render_side_panel(frame, side_layout, run);
+            let default_metric_tag = metrics.keys().find(|_| true).unwrap();
+            let metric_tag = selected_metric.as_ref().unwrap_or(default_metric_tag);
+
+            render_metric_tabs_and_chart(frame, chart_layout, metrics, selected_metric);
+            render_side_panel(frame, side_layout, run);
+        }
+        _ => {}
+    }
 }
 
-fn render_metric_tabs_and_chart(frame: &mut Frame, area: Rect, run: &ModelRunState) {
+fn render_metric_tabs_and_chart(
+    frame: &mut Frame,
+    area: Rect,
+    metrics: &HashMap<MetricTag, Metric>,
+    selected_metric: &MetricTag,
+) {
+    if metrics.is_empty() {
+        return;
+    }
+
     let [tabs_layout, chart_layout] = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![Constraint::Length(1), Constraint::Fill(1)])
@@ -57,43 +80,56 @@ fn render_metric_tabs_and_chart(frame: &mut Frame, area: Rect, run: &ModelRunSta
         return;
     };
 
-    match metric.chart_kind {
-        ChartKind::Line => render_line_chart(frame, chart_layout, metric),
-        ChartKind::Bar => render_bar_chart(frame, chart_layout, metric),
+    match metric.graph {
+        GraphType::Line => render_line_chart(frame, chart_layout, metric),
+        //GraphType::Bar => render_bar_chart(frame, chart_layout, metric),
+        _ => unimplemented!("Other graph type not implemented"),
     }
 }
 
-fn render_line_chart(frame: &mut Frame, area: Rect, metric: &MetricSeries) {
+fn render_line_chart<T>(
+    frame: &mut Frame,
+    area: Rect,
+    metric: &MetricSeries<T>,
+    label: &'static str,
+) where
+    T: Ord + Clone + Into<f64>,
+{
     let x_min = metric
-        .line_data
+        .datapoints
         .iter()
-        .map(|(x, _)| *x)
+        .map(|d| d.timestamp.clone().into())
         .fold(f64::INFINITY, f64::min);
     let x_max = metric
-        .line_data
+        .datapoints
         .iter()
-        .map(|(x, _)| *x)
+        .map(|d| d.timestamp.into())
         .fold(f64::NEG_INFINITY, f64::max);
     let y_min = metric
-        .line_data
+        .datapoints
         .iter()
-        .map(|(_, y)| *y)
+        .map(|d| d.value.into())
         .fold(f64::INFINITY, f64::min);
     let y_max = metric
-        .line_data
+        .datapoints
         .iter()
-        .map(|(_, y)| *y)
+        .map(|d| d.value.into())
         .fold(f64::NEG_INFINITY, f64::max);
 
+    let datapoints = metric
+        .datapoints
+        .iter()
+        .map(|d| (d.timestamp.into(), d.value.into()))
+        .collect::<Vec<_>>();
     let chart = Chart::new(vec![
         Dataset::default()
-            .name(metric.name)
-            .data(&metric.line_data)
+            .name(label)
+            .data(&datapoints)
             .marker(Marker::Braille)
             .graph_type(GraphType::Line)
             .style(Style::default().cyan()),
     ])
-    .block(Block::bordered().title(format!(" {} ", metric.name)))
+    .block(Block::bordered().title(format!(" {} ", label)))
     .x_axis(
         Axis::default()
             .title("Step")
@@ -112,29 +148,7 @@ fn render_line_chart(frame: &mut Frame, area: Rect, metric: &MetricSeries) {
     frame.render_widget(chart, area);
 }
 
-fn render_bar_chart(frame: &mut Frame, area: Rect, metric: &MetricSeries) {
-    let bars: Vec<Bar> = metric
-        .bar_data
-        .iter()
-        .map(|(label, value)| {
-            Bar::default()
-                .value(*value)
-                .label(Line::from(*label))
-                .text_value(value.to_string())
-                .style(Style::default().fg(Color::Magenta))
-        })
-        .collect();
-
-    let chart = BarChart::default()
-        .block(Block::bordered().title(format!(" {} ", metric.name)))
-        .data(BarGroup::default().bars(&bars))
-        .bar_width(7)
-        .bar_gap(2);
-
-    frame.render_widget(chart, area);
-}
-
-fn render_side_panel(frame: &mut Frame, area: Rect, run: &ModelRunState) {
+fn render_side_panel(frame: &mut Frame, area: Rect, metrics: &HashMap<MetricTag, Metric>) {
     let block = Block::bordered().title(" Run Info ");
     let inner = block.inner(area);
     frame.render_widget(block, area);

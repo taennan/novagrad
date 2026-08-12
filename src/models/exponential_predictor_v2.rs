@@ -12,6 +12,9 @@ pub struct ExpPredictor {
     pub param: NodeRef,
 }
 
+#[derive(Debug)]
+pub struct RunContext {}
+
 impl ExpPredictor {
     pub fn new() -> Self {
         let input = NodeRef::from(0.0);

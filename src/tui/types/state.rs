@@ -1,16 +1,50 @@
+use crate::tui::types::{
+    Datapoint, MetricScalar, MetricSeries,
+    metrics::{Metric, MetricTag},
+};
 use crossterm::event::KeyCode;
-use std::collections::HashSet;
+use ratatui::widgets::GraphType;
+use std::{
+    collections::{HashMap, HashSet},
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
+#[derive(Default)]
 pub struct AppState {
     pub keys_pressed: HashSet<KeyCode>,
     pub screen: ScreenState,
 }
 
-impl Default for AppState {
-    fn default() -> Self {
+impl AppState {
+    pub fn new_mocked_model_run_screen() -> Self {
+        let mut epochs_metric = MetricScalar::new(5);
+        epochs_metric.format_str = Some("Epoch {} of {}");
+
+        let mut loss_metric = MetricSeries::default();
+        loss_metric.datapoints = (0..100)
+            .map(|i| {
+                let timestamp = SystemTime::now()
+                    .checked_add(Duration::from_secs(i))
+                    .unwrap();
+
+                let x = timestamp.duration_since(UNIX_EPOCH).unwrap().as_secs();
+                let y = (1.0 / (1.0 + x as f32 * 0.05)) + (x as f32 * 0.13).sin() * 0.02;
+                Datapoint::new(x as u32, y)
+            })
+            .collect::<Vec<_>>();
+        loss_metric.format_str = Some("Loss {.3}");
+
+        let mut metrics = HashMap::new();
+        metrics.insert(MetricTag::Usize("epochs"), Metric::Usize(epochs_metric));
+        metrics.insert(MetricTag::F32Series("loss"), Metric::F32Series(loss_metric));
+
         Self {
-            keys_pressed: HashSet::new(),
-            screen: ScreenState::default(),
+            screen: ScreenState::ModelRun {
+                metrics,
+                mode: RunMode::default(),
+                selected_metric: None,
+            },
+            ..Default::default()
         }
     }
 }
@@ -24,7 +58,8 @@ pub enum ScreenState {
     },
     ModelRun {
         mode: RunMode,
-        run: ModelRunState,
+        metrics: HashMap<MetricTag, Metric>,
+        selected_metric: Option<MetricTag>,
     },
 }
 
@@ -170,104 +205,4 @@ fn mock_datasets() -> Vec<DatasetChoice> {
             sample_count: 42_318,
         },
     ]
-}
-
-// ---------------------------------------------------------------------
-// Model Run screen state
-// ---------------------------------------------------------------------
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum ChartKind {
-    Line,
-    #[default]
-    Bar,
-}
-
-#[derive(Debug, Default)]
-pub struct MetricSeries {
-    pub name: &'static str,
-    pub chart_kind: ChartKind,
-    /// Used when `chart_kind == ChartKind::Line`.
-    pub line_data: Vec<(f64, f64)>,
-    /// Used when `chart_kind == ChartKind::Bar`.
-    pub bar_data: Vec<(&'static str, u64)>,
-}
-
-#[derive(Debug, Default)]
-pub struct SystemStats {
-    pub cpu_percent: f64,
-    pub mem_used_mb: f64,
-    pub mem_total_mb: f64,
-    pub elapsed_seconds: u64,
-    pub current_epoch: u32,
-    pub total_epochs: u32,
-}
-
-#[derive(Debug, Default)]
-pub struct ModelRunState {
-    pub metrics: Vec<MetricSeries>,
-    /// Index into `metrics` for whichever chart is currently shown.
-    /// (Switching this — e.g. on Tab / Left-Right — is handled elsewhere.)
-    pub selected_metric: usize,
-    pub stats: SystemStats,
-}
-
-impl ModelRunState {
-    pub fn mocked() -> Self {
-        let loss_data: Vec<(f64, f64)> = (0..100)
-            .map(|i| {
-                let x = i as f64;
-                let y = (1.0 / (1.0 + x * 0.05)) + (x * 0.13).sin() * 0.02;
-                (x, y)
-            })
-            .collect();
-
-        let accuracy_data: Vec<(f64, f64)> = (0..100)
-            .map(|i| {
-                let x = i as f64;
-                let y = (1.0 - (1.0 / (1.0 + x * 0.08))).min(0.99);
-                (x, y)
-            })
-            .collect();
-
-        let lr_bars = vec![
-            ("epoch 1", 100),
-            ("epoch 2", 80),
-            ("epoch 3", 64),
-            ("epoch 4", 51),
-            ("epoch 5", 41),
-        ];
-
-        Self {
-            metrics: vec![
-                MetricSeries {
-                    name: "Loss",
-                    chart_kind: ChartKind::Line,
-                    line_data: loss_data,
-                    bar_data: vec![],
-                },
-                MetricSeries {
-                    name: "Accuracy",
-                    chart_kind: ChartKind::Line,
-                    line_data: accuracy_data,
-                    bar_data: vec![],
-                },
-                MetricSeries {
-                    name: "Learning Rate",
-                    chart_kind: ChartKind::Bar,
-                    line_data: vec![],
-                    bar_data: lr_bars,
-                },
-            ],
-            selected_metric: 0,
-            stats: SystemStats {
-                cpu_percent: 42.3,
-                mem_used_mb: 2_150.0,
-                mem_total_mb: 8_192.0,
-                elapsed_seconds: 754,
-                current_epoch: 5,
-                total_epochs: 20,
-            },
-        }
-    }
 }
