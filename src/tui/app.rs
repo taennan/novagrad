@@ -10,7 +10,7 @@ pub fn run() {
     let (app_sender, app_receiver) = mpsc::channel::<AppEvent>();
     let (model_runner_sender, model_runner_receiver) = mpsc::channel::<ModelRunnerEvent>();
 
-    let state = Arc::new(Mutex::new(AppState::new_mocked_model_run_screen()));
+    let state = Arc::new(Mutex::new(AppState::default()));
 
     workers::input::spawn(app_sender.clone());
     workers::ticker::spawn(app_sender.clone());
@@ -34,6 +34,8 @@ pub fn run() {
                         model_runner_sender: &model_runner_sender,
                     });
                 }
+
+                state.keys_pressed.clear();
             }
 
             let state = state.lock().unwrap();

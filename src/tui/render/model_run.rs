@@ -1,21 +1,38 @@
-use std::collections::HashMap;
-
-use crate::tui::types::{Metric, MetricSeries, MetricTag, RunMode, ScreenState};
+use crate::tui::types::{Metric, MetricSeries, MetricTag, ScreenState};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
     symbols::Marker,
-    text::{Line, Text},
-    widgets::{Axis, Bar, BarChart, BarGroup, Block, Chart, Dataset, GraphType, Paragraph},
+    text::Line,
+    widgets::{Axis, Block, Chart, Dataset, GraphType, Paragraph},
 };
+use std::collections::HashMap;
 
-pub fn render(frame: &mut Frame, mode: RunMode, screen: &ScreenState) {
+// Helper trait to convert metric values to f64
+trait ToF64 {
+    fn to_f64(&self) -> f64;
+}
+
+impl ToF64 for f32 {
+    fn to_f64(&self) -> f64 {
+        *self as f64
+    }
+}
+
+impl ToF64 for usize {
+    fn to_f64(&self) -> f64 {
+        *self as f64
+    }
+}
+
+pub fn render(frame: &mut Frame, screen: &ScreenState) {
     match screen {
         ScreenState::ModelRun {
             mode,
             metrics,
             selected_metric,
+            ..  // mode is captured from outer scope
         } => {
             let [header_layout, body_layout] = Layout::default()
                 .direction(Direction::Vertical)
@@ -30,60 +47,54 @@ pub fn render(frame: &mut Frame, mode: RunMode, screen: &ScreenState) {
 
             let [chart_layout, side_layout] = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints(vec![Constraint::Fill(3), Constraint::Length(30)])
+                .constraints(vec![Constraint::Fill(3), Constraint::Length(35)])
                 .areas(body_layout);
 
-            let default_metric_tag = metrics.keys().find(|_| true).unwrap();
-            let metric_tag = selected_metric.as_ref().unwrap_or(default_metric_tag);
-
-            render_metric_tabs_and_chart(frame, chart_layout, metrics, selected_metric);
-            render_side_panel(frame, side_layout, run);
+            render_chart_and_controls(frame, chart_layout, metrics, selected_metric);
+            render_side_panels(frame, side_layout, metrics, selected_metric);
         }
         _ => {}
     }
 }
 
-fn render_metric_tabs_and_chart(
+fn render_chart_and_controls(
     frame: &mut Frame,
     area: Rect,
     metrics: &HashMap<MetricTag, Metric>,
-    selected_metric: &MetricTag,
+    selected_metric: &Option<MetricTag>,
 ) {
-    if metrics.is_empty() {
-        return;
-    }
-
-    let [tabs_layout, chart_layout] = Layout::default()
+    let [controls_layout, chart_layout] = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![Constraint::Length(1), Constraint::Fill(1)])
         .areas(area);
 
-    // Tab strip: one label per metric, current selection highlighted.
-    let mut spans = Vec::new();
-    for (index, metric) in run.metrics.iter().enumerate() {
-        if index > 0 {
-            spans.push(ratatui::text::Span::raw("  "));
+    // Render controls strip (pause/start/save)
+    let controls = Paragraph::new(" [SPACE] Pause/Resume  [S] Save  [Q] Quit ")
+        .style(Style::default().fg(Color::Gray))
+        .block(Block::bordered());
+    frame.render_widget(controls, controls_layout);
+
+    // Render chart if a metric is selected and it's a timeseries
+    if let Some(metric_tag) = selected_metric {
+        if let Some(metric) = metrics.get(metric_tag) {
+            match metric {
+                Metric::F32Series(series) => {
+                    render_line_chart(frame, chart_layout, series, metric_tag.label());
+                }
+                Metric::UsizeSeries(series) => {
+                    render_line_chart(frame, chart_layout, series, metric_tag.label());
+                }
+                Metric::Usize(_) => {
+                    // Scalar metrics don't get displayed in the chart area
+                    let placeholder =
+                        Paragraph::new("Scalar metric (no chart)").block(Block::bordered());
+                    frame.render_widget(placeholder, chart_layout);
+                }
+            }
         }
-        let style = if index == run.selected_metric {
-            Style::default().fg(Color::Black).bg(Color::Cyan).bold()
-        } else {
-            Style::default().fg(Color::DarkGray)
-        };
-        spans.push(ratatui::text::Span::styled(
-            format!(" [{}] {} ", index + 1, metric.name),
-            style,
-        ));
-    }
-    frame.render_widget(Paragraph::new(Line::from(spans)), tabs_layout);
-
-    let Some(metric) = run.metrics.get(run.selected_metric) else {
-        return;
-    };
-
-    match metric.graph {
-        GraphType::Line => render_line_chart(frame, chart_layout, metric),
-        //GraphType::Bar => render_bar_chart(frame, chart_layout, metric),
-        _ => unimplemented!("Other graph type not implemented"),
+    } else {
+        let placeholder = Paragraph::new("No metric selected").block(Block::bordered());
+        frame.render_widget(placeholder, chart_layout);
     }
 }
 
@@ -93,33 +104,40 @@ fn render_line_chart<T>(
     metric: &MetricSeries<T>,
     label: &'static str,
 ) where
-    T: Ord + Clone + Into<f64>,
+    T: Clone + ToF64,
 {
+    if metric.datapoints.is_empty() {
+        let placeholder =
+            Paragraph::new("No data points").block(Block::bordered().title(format!(" {} ", label)));
+        frame.render_widget(placeholder, area);
+        return;
+    }
+
     let x_min = metric
         .datapoints
         .iter()
-        .map(|d| d.timestamp.clone().into())
+        .map(|d| d.timestamp as f64)
         .fold(f64::INFINITY, f64::min);
     let x_max = metric
         .datapoints
         .iter()
-        .map(|d| d.timestamp.into())
+        .map(|d| d.timestamp as f64)
         .fold(f64::NEG_INFINITY, f64::max);
     let y_min = metric
         .datapoints
         .iter()
-        .map(|d| d.value.into())
+        .map(|d| d.value.clone().to_f64())
         .fold(f64::INFINITY, f64::min);
     let y_max = metric
         .datapoints
         .iter()
-        .map(|d| d.value.into())
+        .map(|d| d.value.clone().to_f64())
         .fold(f64::NEG_INFINITY, f64::max);
 
     let datapoints = metric
         .datapoints
         .iter()
-        .map(|d| (d.timestamp.into(), d.value.into()))
+        .map(|d| (d.timestamp as f64, d.value.clone().to_f64()))
         .collect::<Vec<_>>();
     let chart = Chart::new(vec![
         Dataset::default()
@@ -148,36 +166,66 @@ fn render_line_chart<T>(
     frame.render_widget(chart, area);
 }
 
-fn render_side_panel(frame: &mut Frame, area: Rect, metrics: &HashMap<MetricTag, Metric>) {
-    let block = Block::bordered().title(" Run Info ");
+fn render_side_panels(
+    frame: &mut Frame,
+    area: Rect,
+    metrics: &HashMap<MetricTag, Metric>,
+    selected_metric: &Option<MetricTag>,
+) {
+    let [metrics_layout, logs_layout] = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Fill(1), Constraint::Fill(1)])
+        .areas(area);
+
+    render_metrics_panel(frame, metrics_layout, metrics, selected_metric);
+    render_logs_panel(frame, logs_layout);
+}
+
+fn render_metrics_panel(
+    frame: &mut Frame,
+    area: Rect,
+    metrics: &HashMap<MetricTag, Metric>,
+    selected_metric: &Option<MetricTag>,
+) {
+    let block = Block::bordered().title(" Metrics ");
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let stats = &run.stats;
-    let mem_percent = if stats.mem_total_mb > 0.0 {
-        (stats.mem_used_mb / stats.mem_total_mb) * 100.0
-    } else {
-        0.0
-    };
+    if metrics.is_empty() {
+        let msg = Paragraph::new("No metrics available");
+        frame.render_widget(msg, inner);
+        return;
+    }
 
-    let lines = Text::from(vec![
-        Line::from(format!(
-            "Epoch:  {}/{}",
-            stats.current_epoch, stats.total_epochs
-        )),
-        Line::from(format!(
-            "Elapsed: {:02}:{:02}:{:02}",
-            stats.elapsed_seconds / 3600,
-            (stats.elapsed_seconds % 3600) / 60,
-            stats.elapsed_seconds % 60
-        )),
-        Line::default(),
-        Line::from(format!("CPU: {:.1}%", stats.cpu_percent)),
-        Line::from(format!(
-            "Mem: {:.0} / {:.0} MB ({:.0}%)",
-            stats.mem_used_mb, stats.mem_total_mb, mem_percent
-        )),
-    ]);
+    // Collect and sort metric tags alphabetically
+    let mut sorted_metric_tags: Vec<&MetricTag> = metrics.keys().collect();
+    sorted_metric_tags.sort_by(|a, b| a.label().cmp(b.label()));
+
+    let lines: Vec<Line> = sorted_metric_tags
+        .iter()
+        .map(|tag| {
+            let is_selected = selected_metric.as_ref() == Some(tag);
+            let label = metrics
+                .get(tag)
+                .map_or(tag.label(), |m| m.format_str().unwrap_or(tag.label()));
+            let style = if is_selected {
+                Style::default().fg(Color::Black).bg(Color::Cyan).bold()
+            } else {
+                Style::default().fg(Color::White)
+            };
+            Line::styled(format!(" > {} ", label), style)
+        })
+        .collect();
 
     frame.render_widget(Paragraph::new(lines), inner);
+}
+
+fn render_logs_panel(frame: &mut Frame, area: Rect) {
+    let block = Block::bordered().title(" Logs ");
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    // Placeholder for logs - user will add logic later
+    let placeholder = Paragraph::new("[Logs will appear here]");
+    frame.render_widget(placeholder, inner);
 }

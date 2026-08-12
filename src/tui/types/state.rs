@@ -3,11 +3,7 @@ use crate::tui::types::{
     metrics::{Metric, MetricTag},
 };
 use crossterm::event::KeyCode;
-use ratatui::widgets::GraphType;
-use std::{
-    collections::{HashMap, HashSet},
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
 pub struct AppState {
@@ -23,11 +19,7 @@ impl AppState {
         let mut loss_metric = MetricSeries::default();
         loss_metric.datapoints = (0..100)
             .map(|i| {
-                let timestamp = SystemTime::now()
-                    .checked_add(Duration::from_secs(i))
-                    .unwrap();
-
-                let x = timestamp.duration_since(UNIX_EPOCH).unwrap().as_secs();
+                let x = i as u32;
                 let y = (1.0 / (1.0 + x as f32 * 0.05)) + (x as f32 * 0.13).sin() * 0.02;
                 Datapoint::new(x as u32, y)
             })

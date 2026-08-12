@@ -1,7 +1,6 @@
-use crate::tui::types::{
-    AppSystemContext, ModelRunState, ModelSelectWizard, RunMode, ScreenState, WizardStep,
-};
+use crate::tui::types::{AppSystemContext, ModelSelectWizard, RunMode, ScreenState, WizardStep};
 use crossterm::event::KeyCode;
+use std::collections::HashMap;
 
 /// Handles user input for the model select wizard:
 /// - Up/Down arrows navigate the list
@@ -69,13 +68,19 @@ fn go_forward(wizard: &mut ModelSelectWizard) -> Option<ScreenState> {
             None
         }
         WizardStep::Confirm => {
-            let run = ModelRunState::mocked();
             let mode = match wizard.selected_run_mode {
                 Some(selected) => wizard.run_modes[selected],
                 None => RunMode::default(),
             };
 
-            let screen = ScreenState::ModelRun { mode, run };
+            // Create mocked metrics for the model run
+            let metrics = create_mocked_metrics();
+
+            let screen = ScreenState::ModelRun {
+                mode,
+                metrics,
+                selected_metric: None,
+            };
             Some(screen)
         }
     }
@@ -103,4 +108,29 @@ fn go_back(wizard: &mut ModelSelectWizard) -> Option<ScreenState> {
     }
 
     None
+}
+
+fn create_mocked_metrics() -> HashMap<crate::tui::types::MetricTag, crate::tui::types::Metric> {
+    use crate::tui::types::{Datapoint, Metric, MetricScalar, MetricSeries, MetricTag};
+    use ratatui::widgets::GraphType;
+
+    let mut epochs_metric = MetricScalar::new(5);
+    epochs_metric.format_str = Some("Epoch {} of {}");
+
+    let mut loss_metric = MetricSeries::default();
+    loss_metric.datapoints = (0..100)
+        .map(|i| {
+            let x = i as u32;
+            let y = (1.0 / (1.0 + x as f32 * 0.05)) + (x as f32 * 0.13).sin() * 0.02;
+            Datapoint::new(x, y)
+        })
+        .collect::<Vec<_>>();
+    loss_metric.graph = GraphType::Line;
+    loss_metric.format_str = Some("Loss {.3}");
+
+    let mut metrics = HashMap::new();
+    metrics.insert(MetricTag::Usize("epochs"), Metric::Usize(epochs_metric));
+    metrics.insert(MetricTag::F32Series("loss"), Metric::F32Series(loss_metric));
+
+    metrics
 }

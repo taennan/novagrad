@@ -23,6 +23,16 @@ pub enum Metric {
     Usize(MetricScalar<usize>),
 }
 
+impl Metric {
+    pub fn format_str(&self) -> Option<&'static str> {
+        match self {
+            Self::F32Series(s) => s.format_str,
+            Self::UsizeSeries(s) => s.format_str,
+            Self::Usize(s) => s.format_str,
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct MetricScalar<T> {
     pub value: T,

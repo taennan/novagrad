@@ -23,10 +23,6 @@ pub fn spawn(app_sender: Sender<AppEvent>) -> JoinHandle<()> {
                         app_sender
                             .send(AppEvent::KeyPress(key_event.code))
                             .expect(app_event_send_error_msg);
-                    } else if key_event.is_release() {
-                        app_sender
-                            .send(AppEvent::KeyRelease(key_event.code))
-                            .expect(app_event_send_error_msg);
                     }
                 }
                 _ => (),

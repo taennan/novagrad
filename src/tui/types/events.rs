@@ -7,7 +7,6 @@ pub enum AppEvent {
     Tick,
     SetTitle(String),
     KeyPress(KeyCode),
-    KeyRelease(KeyCode),
 }
 
 pub enum ModelRunnerEvent {
