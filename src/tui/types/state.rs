@@ -1,7 +1,4 @@
-use crate::tui::types::{
-    Datapoint, MetricScalar, MetricSeries,
-    metrics::{Metric, MetricTag},
-};
+use crate::utils::metrics::{Datapoint, Metric, MetricScalar, MetricSeries, MetricTag};
 use crossterm::event::KeyCode;
 use std::collections::{HashMap, HashSet};
 

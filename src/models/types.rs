@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fmt::Debug, io, path::PathBuf};
+use crate::utils::{
+    Logger,
+    events::AppEvent,
+    metrics::{Metric, MetricTag},
+};
+use std::{collections::HashMap, fmt::Debug, io, path::PathBuf, sync::mpsc::Sender};
 
 pub enum CategorisedModel {
     F32(Box<dyn Model<f32>>),
@@ -42,8 +47,10 @@ pub trait Model<N> {
         &self,
         hyperparams: &HashMap<String, HyperParam>,
         dataset: &dyn Dataset<N>,
+        app_sender: Sender<AppEvent>,
+        logger: &Logger,
     ) -> Result<(), ()>;
-    fn test(&self, dataset: &dyn Dataset<N>) -> Result<(), ()>;
+    fn test(&self, dataset: &dyn Dataset<N>, logger: &Logger) -> Result<(), ()>;
     fn save(&self, filepath: PathBuf) -> Result<(), io::Error>;
     fn load(&self, filepath: PathBuf) -> Result<(), io::Error>;
 }

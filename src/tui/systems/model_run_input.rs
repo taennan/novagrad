@@ -1,4 +1,7 @@
-use crate::tui::types::{AppSystemContext, MetricTag, ScreenState};
+use crate::{
+    tui::types::{AppSystemContext, ScreenState},
+    utils::metrics::MetricTag,
+};
 use crossterm::event::KeyCode;
 
 /// Handles user input during model training/testing:

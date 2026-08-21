@@ -1,6 +1,6 @@
-use crate::tui::{
-    types::{Metric, MetricSeries, MetricTag, ScreenState},
-    workers::logger::LogWorkerState,
+use crate::{
+    tui::{types::ScreenState, workers::logger::LogWorkerState},
+    utils::metrics::{Metric, MetricSeries, MetricTag},
 };
 use ratatui::{
     Frame,
@@ -90,7 +90,7 @@ fn render_chart_and_controls(
                 Metric::UsizeSeries(series) => {
                     render_line_chart(frame, chart_layout, series, metric_tag.label());
                 }
-                Metric::Usize(_) => {
+                _ => {
                     // Scalar metrics don't get displayed in the chart area
                     let placeholder =
                         Paragraph::new("Scalar metric (no chart)").block(Block::bordered());

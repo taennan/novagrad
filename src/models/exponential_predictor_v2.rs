@@ -1,9 +1,14 @@
 use crate::{
     engine::{ExpOp, MseOp, NodeRef},
     models::{Dataset, HyperParam, HyperParamConfig, Model},
+    utils::{
+        Logger,
+        events::AppEvent,
+        metrics::{Metric, MetricScalar, MetricTag},
+    },
 };
 use rand::prelude::*;
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{collections::HashMap, io, path::PathBuf, sync::mpsc::Sender};
 
 #[derive(Debug)]
 pub struct ExpPredictor {
@@ -11,9 +16,6 @@ pub struct ExpPredictor {
     pub output: NodeRef,
     pub param: NodeRef,
 }
-
-#[derive(Debug)]
-pub struct RunContext {}
 
 impl ExpPredictor {
     pub fn new() -> Self {
@@ -46,22 +48,56 @@ impl Model<f32> for ExpPredictor {
         &self,
         hyperparams: &HashMap<String, HyperParam>,
         dataset: &dyn Dataset<f32>,
+        app_sender: Sender<AppEvent>,
+        logger: &Logger,
     ) -> Result<(), ()> {
-        let epochs = hyperparams.get("epoch").map_or(4usize, |h| match h {
-            HyperParam::Int(e) => *e as usize,
-            _ => 4,
-        });
-        let step = hyperparams.get("step").map_or(1e-6, |h| match h {
+        let epoch_key = "epoch";
+        let epoch_tag = MetricTag::Usize(epoch_key);
+        let default_epoch = 4usize;
+        let epochs = hyperparams
+            .get(epoch_key)
+            .map_or(default_epoch, |h| match h {
+                HyperParam::Int(e) => *e as usize,
+                _ => default_epoch,
+            });
+        if let Err(_) = app_sender.send(AppEvent::MetricModified(
+            epoch_tag,
+            Metric::Usize(MetricScalar::new(0)),
+        )) {
+            logger.error("Failed to send metric");
+        }
+
+        let step_key = "step";
+        let step_tag = MetricTag::F32(step_key);
+        let default_step = 1e-6;
+        let step = hyperparams.get(step_key).map_or(default_step, |h| match h {
             HyperParam::Float(e) => *e as f32,
-            _ => 1e-6,
+            _ => default_step,
         });
+        if let Err(_) = app_sender.send(AppEvent::MetricModified(
+            step_tag,
+            Metric::F32(MetricScalar::new(step)),
+        )) {
+            logger.error("Failed to send metric");
+        }
 
-        let batch_size = hyperparams.get("batch_size").map_or(1usize, |h| match h {
-            HyperParam::Int(e) => *e as usize,
-            _ => 1,
-        });
+        let batch_size_key = "batch_size";
+        let batch_size_tag = MetricTag::Usize(batch_size_key);
+        let default_batch_size = 5usize;
+        let batch_size = hyperparams
+            .get(batch_size_key)
+            .map_or(default_batch_size, |h| match h {
+                HyperParam::Int(e) => *e as usize,
+                _ => default_batch_size,
+            });
+        if let Err(_) = app_sender.send(AppEvent::MetricModified(
+            batch_size_tag,
+            Metric::Usize(MetricScalar::new(batch_size)),
+        )) {
+            logger.error("Failed to send metric");
+        }
+
         let batch_size_node = NodeRef::from(batch_size as f32);
-
         let expected_node = NodeRef::from(0.0);
         let loss = NodeRef::chained(
             &[
@@ -72,13 +108,11 @@ impl Model<f32> for ExpPredictor {
             &MseOp,
         );
 
-        println!();
-        println!("Starting training for model ExponentialPredictor...");
-        println!("Params: epochs={} step={}", epochs, step);
-        println!();
+        logger.log("Starting training for model ExponentialPredictor...");
+        logger.log(&format!("Params: epochs={} step={}", epochs, step));
 
         for epoch in 0..epochs {
-            println!("Training Epoch {}", epoch);
+            logger.log(&format!("Training Epoch {}", epoch));
 
             let mut avg_loss_sum = 0.0;
 
@@ -97,24 +131,23 @@ impl Model<f32> for ExpPredictor {
                 avg_loss_sum += loss.value();
             }
 
-            println!(
+            logger.log(&format!(
                 "  average loss={}",
                 avg_loss_sum / dataset.train_len() as f32
-            );
-            println!("  param value={}", self.param.value());
+            ));
+            logger.log(&format!("  param value={}", self.param.value()));
         }
 
-        println!("Training complete!");
-        println!();
+        logger.log("Training complete!");
 
         Ok(())
     }
 
-    fn test(&self, dataset: &dyn Dataset<f32>) -> Result<(), ()> {
+    fn test(&self, dataset: &dyn Dataset<f32>, logger: &Logger) -> Result<(), ()> {
         let dataset = build_dataset(25);
 
-        println!("Starting testing...");
-        println!("  dataset_length={}", dataset.len());
+        logger.log("Starting testing...");
+        logger.log(&format!("  dataset_length={}", dataset.len()));
 
         for (input_value, expected_value) in dataset {
             self.input.set_value(input_value);
@@ -122,16 +155,14 @@ impl Model<f32> for ExpPredictor {
             self.output.compute_value();
             let actual_value = self.output.value();
 
-            println!(
+            logger.log(&format!(
                 "  input={} expected={} actual={} error={}",
                 input_value,
                 expected_value,
                 actual_value,
-                actual_value - expected_value
-            );
+                actual_value - expected_value,
+            ));
         }
-
-        println!();
 
         Ok(())
     }
@@ -153,36 +184,4 @@ fn build_dataset(length: usize) -> Vec<(f32, f32)> {
             (x, y)
         })
         .collect::<Vec<_>>()
-}
-
-pub struct _ExpPredictor;
-
-impl Model<f32> for _ExpPredictor {
-    fn name(&self) -> &'static str {
-        "Exponential Predictor Stub"
-    }
-
-    fn hyperparam_config(&self) -> HashMap<String, HyperParamConfig> {
-        HashMap::new()
-    }
-
-    fn train(
-        &self,
-        hyperparams: &HashMap<String, HyperParam>,
-        dataset: &dyn Dataset<f32>,
-    ) -> Result<(), ()> {
-        todo!()
-    }
-
-    fn test(&self, dataset: &dyn Dataset<f32>) -> Result<(), ()> {
-        todo!()
-    }
-
-    fn save(&self, filepath: PathBuf) -> Result<(), io::Error> {
-        todo!()
-    }
-
-    fn load(&self, filepath: PathBuf) -> Result<(), io::Error> {
-        todo!()
-    }
 }

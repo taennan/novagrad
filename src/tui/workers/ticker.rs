@@ -1,4 +1,4 @@
-use crate::tui::types::AppEvent;
+use crate::utils::events::AppEvent;
 use std::{
     sync::mpsc::Sender,
     thread::{self, JoinHandle},

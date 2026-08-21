@@ -1,6 +1,9 @@
-use crate::tui::{
-    types::{AppEvent, AppState, ModelRunnerEvent},
-    workers::logger::Logger,
+use crate::{
+    tui::types::AppState,
+    utils::{
+        Logger,
+        events::{AppEvent, ModelRunnerEvent},
+    },
 };
 use std::sync::mpsc::Sender;
 

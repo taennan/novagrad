@@ -1,4 +1,7 @@
-use crate::models::{Models, datasets::Datasets};
+use crate::{
+    models::{Models, datasets::Datasets},
+    utils::metrics::{Metric, MetricTag},
+};
 use crossterm::event::KeyCode;
 
 #[derive(Debug)]
@@ -7,6 +10,8 @@ pub enum AppEvent {
     Tick,
     SetTitle(String),
     KeyPress(KeyCode),
+    MetricModified(MetricTag, Metric),
+    MetricDeleted(MetricTag),
 }
 
 pub enum ModelRunnerEvent {

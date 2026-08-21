@@ -1,5 +1,9 @@
-use crate::tui::types::{AppSystemContext, ModelSelectWizard, RunMode, ScreenState, WizardStep};
+use crate::{
+    tui::types::{AppSystemContext, ModelSelectWizard, RunMode, ScreenState, WizardStep},
+    utils::metrics::{Datapoint, Metric, MetricScalar, MetricSeries, MetricTag},
+};
 use crossterm::event::KeyCode;
+use ratatui::widgets::GraphType;
 use std::collections::HashMap;
 
 /// Handles user input for the model select wizard:
@@ -110,10 +114,7 @@ fn go_back(wizard: &mut ModelSelectWizard) -> Option<ScreenState> {
     None
 }
 
-fn create_mocked_metrics() -> HashMap<crate::tui::types::MetricTag, crate::tui::types::Metric> {
-    use crate::tui::types::{Datapoint, Metric, MetricScalar, MetricSeries, MetricTag};
-    use ratatui::widgets::GraphType;
-
+fn create_mocked_metrics() -> HashMap<MetricTag, Metric> {
     let mut epochs_metric = MetricScalar::new(5);
     epochs_metric.format_str = Some("Epoch {} of {}");
 

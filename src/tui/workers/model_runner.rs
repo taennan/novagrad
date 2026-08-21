@@ -4,11 +4,18 @@ use crate::{
         datasets::{Datasets, ExponentialDataset},
         exponential_predictor_v2::ExpPredictor,
     },
-    tui::types::{AppState, ModelRunnerEvent, RunMode, ScreenState},
+    tui::types::{AppState, RunMode, ScreenState},
+    utils::{
+        Logger,
+        events::{AppEvent, ModelRunnerEvent},
+    },
 };
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, mpsc::Receiver},
+    sync::{
+        Arc, Mutex, OnceLock,
+        mpsc::{Receiver, Sender},
+    },
     thread::{self, JoinHandle},
     time::Duration,
 };
@@ -16,6 +23,8 @@ use std::{
 pub fn spawn(
     state: Arc<Mutex<AppState>>,
     model_runner_receiver: Receiver<ModelRunnerEvent>,
+    app_sender: Sender<AppEvent>,
+    logger: Arc<OnceLock<Logger>>,
 ) -> JoinHandle<()> {
     thread::spawn(move || {
         let mut categorised_model = Option::<CategorisedModel>::None;
@@ -56,27 +65,37 @@ pub fn spawn(
                 && let Some(categorised_model) = &categorised_model
                 && let Some(categorised_dataset) = &categorised_dataset
             {
-                let state = state.lock().unwrap();
-                if let ScreenState::ModelRun { mode, .. } = state.screen {
+                let mut state = state.lock().unwrap();
+                if let ScreenState::ModelRun { mode, metrics, .. } = &mut state.screen {
                     let hyperparams = HashMap::new();
                     match (&categorised_model, &categorised_dataset) {
                         (CategorisedModel::F32(model), CategorisedDataset::F32(dataset)) => {
                             match mode {
-                                RunMode::Test => {
-                                    model.test(dataset.as_ref()).expect("Testing run failed")
-                                }
+                                RunMode::Test => model
+                                    .test(dataset.as_ref(), logger.wait())
+                                    .expect("Testing run failed"),
                                 RunMode::Train => model
-                                    .train(&hyperparams, dataset.as_ref())
+                                    .train(
+                                        &hyperparams,
+                                        dataset.as_ref(),
+                                        app_sender.clone(),
+                                        logger.wait(),
+                                    )
                                     .expect("Training run failed"),
                             }
                         }
                         (CategorisedModel::F64(model), CategorisedDataset::F64(dataset)) => {
                             match mode {
-                                RunMode::Test => {
-                                    model.test(dataset.as_ref()).expect("Testing run failed")
-                                }
+                                RunMode::Test => model
+                                    .test(dataset.as_ref(), logger.wait())
+                                    .expect("Testing run failed"),
                                 RunMode::Train => model
-                                    .train(&hyperparams, dataset.as_ref())
+                                    .train(
+                                        &hyperparams,
+                                        dataset.as_ref(),
+                                        app_sender.clone(),
+                                        logger.wait(),
+                                    )
                                     .expect("Training run failed"),
                             }
                         }
