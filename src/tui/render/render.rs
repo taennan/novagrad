@@ -1,7 +1,9 @@
-use crate::tui::{
-    render::{home, model_run, model_select},
-    types::{AppState, ScreenState},
-    workers::logger::LogWorkerState,
+use crate::{
+    tui::{
+        render::{home, model_run, model_select},
+        workers::logger::LogWorkerState,
+    },
+    utils::state::{AppState, ScreenState},
 };
 use std::sync::{Arc, Mutex};
 

@@ -1,7 +1,4 @@
-use crate::{
-    tui::types::{AppSystemContext, ScreenState},
-    utils::metrics::MetricTag,
-};
+use crate::utils::{state::ScreenState, system::AppSystemContext};
 use crossterm::event::KeyCode;
 
 /// Handles user input during model training/testing:
@@ -22,8 +19,8 @@ pub fn run(ctx: AppSystemContext) {
     }
 
     // Collect and sort metric tags alphabetically
-    let mut sorted_metrics: Vec<&MetricTag> = metrics.keys().collect();
-    sorted_metrics.sort_by(|a, b| a.label().cmp(b.label()));
+    let mut sorted_metrics = metrics.keys().collect::<Vec<_>>();
+    sorted_metrics.sort_by(|a, b| a.cmp(b));
 
     let mod_amount = if ctx.state.keys_pressed.contains(&KeyCode::Up) {
         1isize
@@ -50,5 +47,5 @@ pub fn run(ctx: AppSystemContext) {
     } as usize;
 
     //println!("Selecting metric {new_index}");
-    *selected_metric = Some(sorted_metrics[new_index].clone());
+    *selected_metric = Some(sorted_metrics[new_index]);
 }

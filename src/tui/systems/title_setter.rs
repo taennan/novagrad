@@ -1,4 +1,4 @@
-use crate::{tui::types::AppSystemContext, utils::events::AppEvent};
+use crate::utils::{events::AppEvent, system::AppSystemContext};
 use crossterm::{ExecutableCommand, terminal};
 use std::io;
 

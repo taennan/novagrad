@@ -1,6 +1,7 @@
 use crate::{
-    models::{Models, datasets::Datasets},
-    utils::metrics::{Metric, MetricTag},
+    datasets::Datasets,
+    models::Models,
+    utils::{Primitive, metrics::Metric, state::RunMode},
 };
 use crossterm::event::KeyCode;
 
@@ -10,14 +11,14 @@ pub enum AppEvent {
     Tick,
     SetTitle(String),
     KeyPress(KeyCode),
-    MetricModified(MetricTag, Metric),
-    MetricDeleted(MetricTag),
+    MetricAdded(&'static str, Metric),
+    MetricModified(&'static str, Primitive),
+    MetricDeleted(&'static str),
 }
 
 pub enum ModelRunnerEvent {
-    Start(Models),
+    Start(Models, Datasets, RunMode),
     Pause,
     Resume,
     Stop,
-    SetDataset(Datasets),
 }

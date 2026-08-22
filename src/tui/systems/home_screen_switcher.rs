@@ -1,4 +1,7 @@
-use crate::tui::types::{AppSystemContext, ModelSelectWizard, ScreenState};
+use crate::utils::{
+    state::{ModelSelectWizard, ScreenState},
+    system::AppSystemContext,
+};
 
 pub fn run(ctx: AppSystemContext) {
     let is_on_home_screen = matches!(ctx.state.screen, ScreenState::Home);

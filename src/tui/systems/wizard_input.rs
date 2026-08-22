@@ -1,10 +1,12 @@
 use crate::{
-    tui::types::{AppSystemContext, ModelSelectWizard, RunMode, ScreenState, WizardStep},
-    utils::metrics::{Datapoint, Metric, MetricScalar, MetricSeries, MetricTag},
+    utils::events::ModelRunnerEvent,
+    utils::{
+        state::{ModelSelectWizard, RunMode, ScreenState, WizardStep},
+        system::AppSystemContext,
+    },
 };
 use crossterm::event::KeyCode;
-use ratatui::widgets::GraphType;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc::Sender};
 
 /// Handles user input for the model select wizard:
 /// - Up/Down arrows navigate the list
@@ -20,7 +22,7 @@ pub fn run(ctx: AppSystemContext) {
     } else if ctx.state.keys_pressed.contains(&KeyCode::Down) {
         move_cursor(wizard, 1);
     } else if ctx.state.keys_pressed.contains(&KeyCode::Enter) {
-        match go_forward(wizard) {
+        match go_forward(wizard, ctx.model_runner_sender) {
             Some(screen) => ctx.state.screen = screen,
             _ => {}
         }
@@ -51,7 +53,10 @@ fn move_cursor(wizard: &mut ModelSelectWizard, delta: i32) {
     wizard.cursor = new_cursor;
 }
 
-fn go_forward(wizard: &mut ModelSelectWizard) -> Option<ScreenState> {
+fn go_forward(
+    wizard: &mut ModelSelectWizard,
+    model_runner_sender: &Sender<ModelRunnerEvent>,
+) -> Option<ScreenState> {
     match wizard.step {
         WizardStep::SelectModel => {
             wizard.selected_model = Some(wizard.cursor);
@@ -76,15 +81,20 @@ fn go_forward(wizard: &mut ModelSelectWizard) -> Option<ScreenState> {
                 Some(selected) => wizard.run_modes[selected],
                 None => RunMode::default(),
             };
-
-            // Create mocked metrics for the model run
-            let metrics = create_mocked_metrics();
+            let model = wizard.models[wizard.selected_model.expect("Didn't select a model")];
+            let dataset =
+                wizard.datasets[wizard.selected_dataset.expect("Didn't select a dataset")];
 
             let screen = ScreenState::ModelRun {
                 mode,
-                metrics,
+                metrics: HashMap::new(),
                 selected_metric: None,
             };
+
+            model_runner_sender
+                .send(ModelRunnerEvent::Start(model, dataset, mode))
+                .expect("Failed to send model start event");
+
             Some(screen)
         }
     }
@@ -112,26 +122,4 @@ fn go_back(wizard: &mut ModelSelectWizard) -> Option<ScreenState> {
     }
 
     None
-}
-
-fn create_mocked_metrics() -> HashMap<MetricTag, Metric> {
-    let mut epochs_metric = MetricScalar::new(5);
-    epochs_metric.format_str = Some("Epoch {} of {}");
-
-    let mut loss_metric = MetricSeries::default();
-    loss_metric.datapoints = (0..100)
-        .map(|i| {
-            let x = i as u32;
-            let y = (1.0 / (1.0 + x as f32 * 0.05)) + (x as f32 * 0.13).sin() * 0.02;
-            Datapoint::new(x, y)
-        })
-        .collect::<Vec<_>>();
-    loss_metric.graph = GraphType::Line;
-    loss_metric.format_str = Some("Loss {.3}");
-
-    let mut metrics = HashMap::new();
-    metrics.insert(MetricTag::Usize("epochs"), Metric::Usize(epochs_metric));
-    metrics.insert(MetricTag::F32Series("loss"), Metric::F32Series(loss_metric));
-
-    metrics
 }

@@ -1,4 +1,4 @@
-use crate::tui::types::{ModelChoice, ModelSelectWizard, RunMode, WizardStep};
+use crate::utils::state::{ModelSelectWizard, RunMode, WizardStep};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -71,19 +71,15 @@ fn render_model_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizard) 
         .models
         .iter()
         .enumerate()
-        .map(|(index, choice)| {
-            let (label, detail) = match choice {
-                ModelChoice::New { name, architecture } => (
-                    format!("New model: {name}"),
-                    format!("train from scratch · {architecture}"),
+        .map(|(index, model)| {
+            let (label, detail) = match &model.meta().checkpoint {
+                Some(checkpoint) => (
+                    format!("Existing model: {}", model.meta().name),
+                    format!("resume from {:?}", checkpoint.file_name()),
                 ),
-                ModelChoice::Existing {
-                    name,
-                    checkpoint,
-                    last_trained,
-                } => (
-                    format!("Existing model: {name}"),
-                    format!("resume from {checkpoint} · last trained {last_trained}"),
+                _ => (
+                    format!("New model: {}", model.meta().name),
+                    format!("train from scratch"),
                 ),
             };
             list_line(index == wizard.cursor, &label, &detail)
@@ -98,7 +94,7 @@ fn render_run_mode_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizar
     let selected_model = wizard
         .selected_model
         .and_then(|index| wizard.models.get(index))
-        .map(|model| model.display_name())
+        .map(|model| model.meta().name)
         .unwrap_or("(none)");
 
     let items: Vec<Line> = wizard
@@ -126,8 +122,9 @@ fn render_dataset_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizard
         .iter()
         .enumerate()
         .map(|(index, dataset)| {
-            let detail = format!("{} · {} samples", dataset.description, dataset.sample_count);
-            list_line(index == wizard.cursor, dataset.name, &detail)
+            let meta = dataset.meta();
+            let detail = format!("{} · {} samples", meta.description, meta.samples);
+            list_line(index == wizard.cursor, meta.name, &detail)
         })
         .collect();
 
@@ -140,7 +137,7 @@ fn render_confirm_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizard
     let model = wizard
         .selected_model
         .and_then(|i| wizard.models.get(i))
-        .map(|m| m.display_name())
+        .map(|m| m.meta().name)
         .unwrap_or("(none)");
     let mode = wizard
         .selected_run_mode
@@ -150,7 +147,7 @@ fn render_confirm_step(frame: &mut Frame, area: Rect, wizard: &ModelSelectWizard
     let dataset = wizard
         .selected_dataset
         .and_then(|i| wizard.datasets.get(i))
-        .map(|d| d.name)
+        .map(|d| d.meta().name)
         .unwrap_or("(none)");
 
     let summary = Text::from(vec![

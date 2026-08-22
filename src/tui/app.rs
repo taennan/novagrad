@@ -2,17 +2,18 @@ use crate::{
     tui::{
         render::render,
         systems,
-        types::{AppState, AppSystemContext},
         workers::{self, logger::LogWorkerState},
     },
     utils::{
         LogWorkerEvent, Logger,
         events::{AppEvent, ModelRunnerEvent},
+        state::AppState,
+        system::AppSystemContext,
     },
 };
 use std::{
     env,
-    sync::{Arc, Mutex, OnceLock, mpsc},
+    sync::{Arc, Mutex, mpsc},
 };
 
 pub fn run() {
@@ -22,8 +23,9 @@ pub fn run() {
 
     let data_dir = env::current_dir().unwrap().join("data");
     let logfile = data_dir.join("logs.txt");
-    let logger = Arc::new(OnceLock::from(Logger::new(log_sender)));
+    let logger = Logger::new(log_sender);
     let log_state = Arc::new(Mutex::new(LogWorkerState::new()));
+    logger.clear();
 
     let app_state = Arc::new(Mutex::new(AppState::default()));
 
@@ -31,14 +33,13 @@ pub fn run() {
     workers::input::spawn(app_sender.clone());
     workers::ticker::spawn(app_sender.clone());
     workers::model_runner::spawn(
-        app_state.clone(),
         model_runner_receiver,
+        model_runner_sender.clone(),
         app_sender.clone(),
         logger.clone(),
     );
 
     ratatui::run(|terminal| {
-        logger.wait().clear();
         let _ = app_sender.send(AppEvent::SetTitle("Novagrad".into()));
 
         while let Ok(event) = app_receiver.recv() {
@@ -53,8 +54,8 @@ pub fn run() {
                         state: &mut app_state,
                         event: &event,
                         app_sender: &app_sender,
-                        logger: logger.wait(),
                         model_runner_sender: &model_runner_sender,
+                        logger: &logger,
                     });
                 }
 

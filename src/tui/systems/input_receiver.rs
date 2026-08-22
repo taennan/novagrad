@@ -1,4 +1,4 @@
-use crate::{tui::types::AppSystemContext, utils::events::AppEvent};
+use crate::{utils::events::AppEvent, utils::system::AppSystemContext};
 
 pub fn run(ctx: AppSystemContext) {
     match ctx.event {

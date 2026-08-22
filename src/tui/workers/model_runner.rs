@@ -1,110 +1,119 @@
 use crate::{
-    models::{
-        CategorisedDataset, CategorisedModel, Models,
-        datasets::{Datasets, ExponentialDataset},
-        exponential_predictor_v2::ExpPredictor,
-    },
-    tui::types::{AppState, RunMode, ScreenState},
+    datasets::{CategorisedDataset, Dataset, Datasets, ExponentialDataset},
+    models::{CategorisedModel, ExpPredictor, Model, Models, TrainStepOutcome},
     utils::{
         Logger,
         events::{AppEvent, ModelRunnerEvent},
+        state::RunMode,
     },
 };
 use std::{
     collections::HashMap,
-    sync::{
-        Arc, Mutex, OnceLock,
-        mpsc::{Receiver, Sender},
-    },
+    sync::mpsc::{Receiver, Sender},
     thread::{self, JoinHandle},
     time::Duration,
 };
 
 pub fn spawn(
-    state: Arc<Mutex<AppState>>,
     model_runner_receiver: Receiver<ModelRunnerEvent>,
+    model_runner_sender: Sender<ModelRunnerEvent>,
     app_sender: Sender<AppEvent>,
-    logger: Arc<OnceLock<Logger>>,
+    logger: Logger,
 ) -> JoinHandle<()> {
     thread::spawn(move || {
         let mut categorised_model = Option::<CategorisedModel>::None;
         let mut categorised_dataset = Option::<CategorisedDataset>::None;
-        let mut paused = true;
+        let mut mode = RunMode::Test;
+        let mut is_paused = true;
+
         loop {
             while let Ok(event) = model_runner_receiver.try_recv() {
                 match event {
-                    ModelRunnerEvent::Start(new_model) => {
+                    ModelRunnerEvent::Start(new_model, new_dataset, run_mode) => {
                         categorised_model = Some(match new_model {
                             Models::ExpPredictor => {
-                                CategorisedModel::F32(Box::new(ExpPredictor::new()))
+                                CategorisedModel::F32(Box::new(ExpPredictor::new(
+                                    HashMap::new(),
+                                    app_sender.clone(),
+                                    logger.clone(),
+                                )))
                             }
                         });
-                        paused = false;
-                    }
-                    ModelRunnerEvent::Pause => {
-                        paused = true;
-                    }
-                    ModelRunnerEvent::Resume => {
-                        paused = false;
-                    }
-                    ModelRunnerEvent::Stop => {
-                        categorised_model = None;
-                        paused = true;
-                    }
-                    ModelRunnerEvent::SetDataset(new_dataset) => {
                         categorised_dataset = Some(match new_dataset {
                             Datasets::ExponentialF32 => CategorisedDataset::F32(Box::new(
                                 ExponentialDataset::new(500, 1321432),
                             )),
-                        })
+                        });
+                        mode = run_mode;
+                        is_paused = false;
+                    }
+                    ModelRunnerEvent::Pause => {
+                        is_paused = true;
+                    }
+                    ModelRunnerEvent::Resume => {
+                        is_paused = false;
+                    }
+                    ModelRunnerEvent::Stop => {
+                        categorised_model = None;
+                        categorised_dataset = None;
+                        is_paused = true;
                     }
                 }
             }
 
-            if !paused
-                && let Some(categorised_model) = &categorised_model
+            if !is_paused
+                && let Some(categorised_model) = &mut categorised_model
                 && let Some(categorised_dataset) = &categorised_dataset
             {
-                let mut state = state.lock().unwrap();
-                if let ScreenState::ModelRun { mode, metrics, .. } = &mut state.screen {
-                    let hyperparams = HashMap::new();
-                    match (&categorised_model, &categorised_dataset) {
-                        (CategorisedModel::F32(model), CategorisedDataset::F32(dataset)) => {
-                            match mode {
-                                RunMode::Test => model
-                                    .test(dataset.as_ref(), logger.wait())
-                                    .expect("Testing run failed"),
-                                RunMode::Train => model
-                                    .train(
-                                        &hyperparams,
-                                        dataset.as_ref(),
-                                        app_sender.clone(),
-                                        logger.wait(),
-                                    )
-                                    .expect("Training run failed"),
-                            }
+                match (categorised_model, &categorised_dataset) {
+                    (CategorisedModel::F32(model), CategorisedDataset::F32(dataset)) => {
+                        match mode {
+                            RunMode::Test => run_testing(model, dataset),
+                            RunMode::Train => run_training(
+                                model.as_mut(),
+                                dataset.as_ref(),
+                                &mut is_paused,
+                                &model_runner_sender,
+                            ),
                         }
-                        (CategorisedModel::F64(model), CategorisedDataset::F64(dataset)) => {
-                            match mode {
-                                RunMode::Test => model
-                                    .test(dataset.as_ref(), logger.wait())
-                                    .expect("Testing run failed"),
-                                RunMode::Train => model
-                                    .train(
-                                        &hyperparams,
-                                        dataset.as_ref(),
-                                        app_sender.clone(),
-                                        logger.wait(),
-                                    )
-                                    .expect("Training run failed"),
-                            }
+                    }
+                    (CategorisedModel::F64(model), CategorisedDataset::F64(dataset)) => {
+                        match mode {
+                            RunMode::Test => run_testing(model, dataset),
+                            RunMode::Train => run_training(
+                                model.as_mut(),
+                                dataset.as_ref(),
+                                &mut is_paused,
+                                &model_runner_sender,
+                            ),
                         }
-                        _ => {}
+                    }
+                    _ => {
+                        panic!("Incompatible model and dataset types selected")
                     }
                 }
+            } else {
+                thread::sleep(Duration::from_millis(250));
             }
-
-            thread::sleep(Duration::from_millis(250));
         }
     })
+}
+
+fn run_training<T>(
+    model: &mut dyn Model<T>,
+    dataset: &dyn Dataset<T>,
+    is_paused: &mut bool,
+    model_runner_sender: &Sender<ModelRunnerEvent>,
+) {
+    match model.train_step(dataset).expect("Training step failed") {
+        TrainStepOutcome::Continue => {}
+        TrainStepOutcome::Done => {
+            *is_paused = true;
+            model_runner_sender.send(ModelRunnerEvent::Stop).unwrap();
+        }
+    }
+}
+
+fn run_testing<T>(model: &Box<dyn Model<T>>, dataset: &Box<dyn Dataset<T>>) {
+    model.test(dataset.as_ref()).expect("Testing run failed")
 }

@@ -1,4 +1,4 @@
-use crate::tui::types::AppSystem;
+use crate::utils::system::AppSystem;
 
 mod app_quitter;
 mod home_screen_switcher;

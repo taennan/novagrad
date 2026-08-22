@@ -1,3 +1,4 @@
+mod datasets;
 mod engine;
 mod models;
 mod tui;

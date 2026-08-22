@@ -1,6 +1,9 @@
 use crate::{
-    tui::{types::ScreenState, workers::logger::LogWorkerState},
-    utils::metrics::{Metric, MetricSeries, MetricTag},
+    tui::workers::logger::LogWorkerState,
+    utils::{
+        metrics::{Metric, MetricSeries},
+        state::ScreenState,
+    },
 };
 use ratatui::{
     Frame,
@@ -66,8 +69,8 @@ pub fn render(frame: &mut Frame, screen: &ScreenState, log_state: Arc<Mutex<LogW
 fn render_chart_and_controls(
     frame: &mut Frame,
     area: Rect,
-    metrics: &HashMap<MetricTag, Metric>,
-    selected_metric: &Option<MetricTag>,
+    metrics: &HashMap<&str, Metric>,
+    selected_metric: &Option<&str>,
 ) {
     let [controls_layout, chart_layout] = Layout::default()
         .direction(Direction::Vertical)
@@ -85,10 +88,10 @@ fn render_chart_and_controls(
         if let Some(metric) = metrics.get(metric_tag) {
             match metric {
                 Metric::F32Series(series) => {
-                    render_line_chart(frame, chart_layout, series, metric_tag.label());
+                    render_line_chart(frame, chart_layout, &series, metric_tag);
                 }
                 Metric::UsizeSeries(series) => {
-                    render_line_chart(frame, chart_layout, series, metric_tag.label());
+                    render_line_chart(frame, chart_layout, &series, metric_tag);
                 }
                 _ => {
                     // Scalar metrics don't get displayed in the chart area
@@ -104,12 +107,8 @@ fn render_chart_and_controls(
     }
 }
 
-fn render_line_chart<T>(
-    frame: &mut Frame,
-    area: Rect,
-    metric: &MetricSeries<T>,
-    label: &'static str,
-) where
+fn render_line_chart<T>(frame: &mut Frame, area: Rect, metric: &MetricSeries<T>, label: &str)
+where
     T: Clone + ToF64,
 {
     if metric.datapoints.is_empty() {
@@ -175,8 +174,8 @@ fn render_line_chart<T>(
 fn render_side_panels(
     frame: &mut Frame,
     area: Rect,
-    metrics: &HashMap<MetricTag, Metric>,
-    selected_metric: &Option<MetricTag>,
+    metrics: &HashMap<&str, Metric>,
+    selected_metric: &Option<&str>,
     log_state: Arc<Mutex<LogWorkerState>>,
 ) {
     let [metrics_layout, logs_layout] = Layout::default()
@@ -191,8 +190,8 @@ fn render_side_panels(
 fn render_metrics_panel(
     frame: &mut Frame,
     area: Rect,
-    metrics: &HashMap<MetricTag, Metric>,
-    selected_metric: &Option<MetricTag>,
+    metrics: &HashMap<&str, Metric>,
+    selected_metric: &Option<&str>,
 ) {
     let block = Block::bordered().title(" Metrics ");
     let inner = block.inner(area);
@@ -205,8 +204,8 @@ fn render_metrics_panel(
     }
 
     // Collect and sort metric tags alphabetically
-    let mut sorted_metric_tags: Vec<&MetricTag> = metrics.keys().collect();
-    sorted_metric_tags.sort_by(|a, b| a.label().cmp(b.label()));
+    let mut sorted_metric_tags = metrics.keys().map(|s| *s).collect::<Vec<_>>();
+    sorted_metric_tags.sort_by(|a, b| a.cmp(b));
 
     let lines: Vec<Line> = sorted_metric_tags
         .iter()
@@ -214,7 +213,8 @@ fn render_metrics_panel(
             let is_selected = selected_metric.as_ref() == Some(tag);
             let label = metrics
                 .get(tag)
-                .map_or(tag.label(), |m| m.format_str().unwrap_or(tag.label()));
+                .map(|m| m.format_str().unwrap_or(tag))
+                .unwrap_or(tag);
             let style = if is_selected {
                 Style::default().fg(Color::Black).bg(Color::Cyan).bold()
             } else {

@@ -9,7 +9,7 @@ pub enum LogWorkerEvent {
     Clear,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Logger {
     sender: Sender<LogWorkerEvent>,
 }

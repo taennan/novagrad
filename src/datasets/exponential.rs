@@ -1,4 +1,4 @@
-use crate::models::{Dataset, DatasetItem};
+use crate::datasets::{Dataset, DatasetItem, DatasetMeta};
 use rand::{RngExt, SeedableRng, distr::StandardUniform, rngs::StdRng};
 
 pub struct ExponentialDataset {
@@ -29,10 +29,6 @@ impl ExponentialDataset {
 }
 
 impl Dataset<f32> for ExponentialDataset {
-    fn name(&self) -> &'static str {
-        "Exponential"
-    }
-
     fn train_len(&self) -> usize {
         self.length
     }

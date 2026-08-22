@@ -1,7 +1,5 @@
 pub mod exponential;
+pub mod types;
 
 pub use exponential::*;
-
-pub enum Datasets {
-    ExponentialF32,
-}
+pub use types::*;

@@ -1,4 +1,4 @@
-use crate::{tui::types::AppSystemContext, utils::events::AppEvent};
+use crate::{utils::events::AppEvent, utils::system::AppSystemContext};
 use crossterm::event::KeyCode;
 
 pub fn run(ctx: AppSystemContext) {

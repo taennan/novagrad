@@ -1,22 +1,5 @@
 use ratatui::widgets::GraphType;
-use std::hash::Hash;
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum MetricTag {
-    Usize(&'static str),
-    F32(&'static str),
-    F32Series(&'static str),
-}
-
-impl MetricTag {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Usize(l) => l,
-            Self::F32(l) => l,
-            Self::F32Series(l) => l,
-        }
-    }
-}
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug)]
 pub enum Metric {
@@ -27,12 +10,12 @@ pub enum Metric {
 }
 
 impl Metric {
-    pub fn format_str(&self) -> Option<&'static str> {
+    pub fn format_str(&self) -> Option<&str> {
         match self {
-            Self::Usize(s) => s.format_str,
-            Self::F32(s) => s.format_str,
-            Self::F32Series(s) => s.format_str,
-            Self::UsizeSeries(s) => s.format_str,
+            Self::Usize(s) => s.format_str.as_deref(),
+            Self::F32(s) => s.format_str.as_deref(),
+            Self::F32Series(s) => s.format_str.as_deref(),
+            Self::UsizeSeries(s) => s.format_str.as_deref(),
         }
     }
 }
@@ -40,7 +23,7 @@ impl Metric {
 #[derive(Clone, Debug, Default)]
 pub struct MetricScalar<T> {
     pub value: T,
-    pub format_str: Option<&'static str>,
+    pub format_str: Option<String>,
 }
 
 impl<T> MetricScalar<T> {
@@ -51,10 +34,13 @@ impl<T> MetricScalar<T> {
         }
     }
 
-    pub fn new_formatted(value: T, format_str: &'static str) -> Self {
+    pub fn new_formatted<S>(value: T, format_str: S) -> Self
+    where
+        S: Into<String>,
+    {
         Self {
             value,
-            format_str: Some(format_str),
+            format_str: Some(format_str.into()),
         }
     }
 }
@@ -83,6 +69,17 @@ pub struct Datapoint<T> {
 }
 
 impl<T> Datapoint<T> {
+    pub fn now(value: T) -> Self {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        Self {
+            timestamp: timestamp as u32,
+            value,
+        }
+    }
+
     pub fn new(timestamp: u32, value: T) -> Self {
         Self { timestamp, value }
     }
